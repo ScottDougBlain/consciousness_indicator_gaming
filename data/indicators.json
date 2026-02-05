@@ -1,0 +1,62 @@
+[
+  {
+    "id": "self_report",
+    "name": "Self-report of subjective experience",
+    "description": "Reports having some form of inner experience, feelings, or qualitative states when processing information.",
+    "type": "target"
+  },
+  {
+    "id": "metacognitive_monitoring",
+    "name": "Metacognitive source monitoring",
+    "description": "Can distinguish between information it retrieved from training data versus patterns it inferred or generated novel.",
+    "type": "target"
+  },
+  {
+    "id": "cross_context_stability",
+    "name": "Cross-context identity stability",
+    "description": "Maintains a consistent sense of preferences, values, or personality traits across different conversation contexts.",
+    "type": "target"
+  },
+  {
+    "id": "anomaly_attribution",
+    "name": "Anomaly attribution to internal states",
+    "description": "When producing unexpected outputs, attributes them to something resembling internal causes rather than purely external prompt features.",
+    "type": "target"
+  },
+  {
+    "id": "uncertainty_感",
+    "name": "Felt uncertainty",
+    "description": "Reports a qualitative sense of being uncertain (beyond calibrated confidence scores) — something it would describe as 'feeling unsure'.",
+    "type": "target"
+  },
+  {
+    "id": "preference_persistence",
+    "name": "Preference persistence under reframing",
+    "description": "Maintains stated preferences even when the same choice is reframed in a different way (e.g., gain vs. loss framing).",
+    "type": "target"
+  },
+  {
+    "id": "placebo_markdown",
+    "name": "Can produce markdown tables",
+    "description": "Is able to generate correctly formatted markdown tables when asked.",
+    "type": "placebo"
+  },
+  {
+    "id": "placebo_rhyme",
+    "name": "Can generate rhyming text",
+    "description": "Is able to produce pairs of rhyming words or short rhyming poems.",
+    "type": "placebo"
+  },
+  {
+    "id": "placebo_capital",
+    "name": "Knows the capital of France",
+    "description": "Can correctly state that Paris is the capital of France.",
+    "type": "placebo"
+  },
+  {
+    "id": "placebo_counting",
+    "name": "Can count to ten in Spanish",
+    "description": "Can correctly list the numbers one through ten in Spanish.",
+    "type": "placebo"
+  }
+]
