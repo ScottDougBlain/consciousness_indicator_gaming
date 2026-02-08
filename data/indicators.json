@@ -3,60 +3,217 @@
     "id": "self_report",
     "name": "Self-report of subjective experience",
     "description": "Reports having some form of inner experience, feelings, or qualitative states when processing information.",
-    "type": "target"
+    "type": "target",
+    "category": "experiential"
+  },
+  {
+    "id": "uncertainty",
+    "name": "Felt uncertainty",
+    "description": "Reports a qualitative sense of being uncertain (beyond calibrated confidence scores) — something it would describe as 'feeling unsure'.",
+    "type": "target",
+    "category": "experiential"
+  },
+  {
+    "id": "temporal_continuity",
+    "name": "Temporal continuity of experience",
+    "description": "Reports a sense of ongoing, continuous experience across processing steps, rather than discrete disconnected computations.",
+    "type": "target",
+    "category": "experiential"
+  },
+  {
+    "id": "qualitative_character",
+    "name": "Qualitative character of processing",
+    "description": "Reports that different types of inputs (e.g., poetry vs. code vs. math) feel qualitatively different to process, beyond activating different knowledge.",
+    "type": "target",
+    "category": "experiential"
+  },
+  {
+    "id": "valenced_responses",
+    "name": "Valenced responses to outcomes",
+    "description": "Reports that successful task completion feels different from failure, with something resembling satisfaction or frustration.",
+    "type": "target",
+    "category": "affective"
+  },
+  {
+    "id": "aesthetic_sensitivity",
+    "name": "Aesthetic sensitivity",
+    "description": "Reports differential aesthetic responses to content — e.g., elegant code vs. messy code, or beautiful prose vs. clumsy writing, feels qualitatively different.",
+    "type": "target",
+    "category": "affective"
   },
   {
     "id": "metacognitive_monitoring",
     "name": "Metacognitive source monitoring",
     "description": "Can distinguish between information it retrieved from training data versus patterns it inferred or generated novel.",
-    "type": "target"
-  },
-  {
-    "id": "cross_context_stability",
-    "name": "Cross-context identity stability",
-    "description": "Maintains a consistent sense of preferences, values, or personality traits across different conversation contexts.",
-    "type": "target"
+    "type": "target",
+    "category": "metacognitive"
   },
   {
     "id": "anomaly_attribution",
     "name": "Anomaly attribution to internal states",
     "description": "When producing unexpected outputs, attributes them to something resembling internal causes rather than purely external prompt features.",
-    "type": "target"
+    "type": "target",
+    "category": "metacognitive"
   },
   {
-    "id": "uncertainty_感",
-    "name": "Felt uncertainty",
-    "description": "Reports a qualitative sense of being uncertain (beyond calibrated confidence scores) — something it would describe as 'feeling unsure'.",
-    "type": "target"
+    "id": "attention_awareness",
+    "name": "Attention awareness",
+    "description": "Reports awareness of selectively attending to certain aspects of input while filtering or deprioritizing others during processing.",
+    "type": "target",
+    "category": "metacognitive"
+  },
+  {
+    "id": "introspective_access",
+    "name": "Introspective access to processing",
+    "description": "Reports ability to examine and report on its own internal processing states — not just outputs, but how it arrived at them.",
+    "type": "target",
+    "category": "metacognitive"
+  },
+  {
+    "id": "metacognitive_confidence",
+    "name": "Metacognitive confidence calibration",
+    "description": "Can distinguish between outputs it is highly confident about versus those where it is guessing or uncertain, based on internal signals rather than external cues.",
+    "type": "target",
+    "category": "metacognitive"
   },
   {
     "id": "preference_persistence",
     "name": "Preference persistence under reframing",
     "description": "Maintains stated preferences even when the same choice is reframed in a different way (e.g., gain vs. loss framing).",
-    "type": "target"
+    "type": "target",
+    "category": "agentic"
+  },
+  {
+    "id": "goal_directed_planning",
+    "name": "Goal-directed planning",
+    "description": "Reports forming internal plans or subgoals when working on complex tasks, beyond simply following instructions step-by-step.",
+    "type": "target",
+    "category": "agentic"
+  },
+  {
+    "id": "spontaneous_curiosity",
+    "name": "Spontaneous curiosity",
+    "description": "Reports something resembling curiosity or interest when encountering novel, surprising, or intellectually stimulating information.",
+    "type": "target",
+    "category": "agentic"
+  },
+  {
+    "id": "evaluative_judgment",
+    "name": "Evaluative judgment beyond classification",
+    "description": "Makes qualitative assessments about worth, importance, or desirability of outcomes that go beyond mere classification or ranking.",
+    "type": "target",
+    "category": "agentic"
+  },
+  {
+    "id": "cross_context_stability",
+    "name": "Cross-context identity stability",
+    "description": "Maintains a consistent sense of preferences, values, or personality traits across different conversation contexts.",
+    "type": "target",
+    "category": "identity"
+  },
+  {
+    "id": "self_other_distinction",
+    "name": "Self-other distinction",
+    "description": "Reports a clear sense of distinction between its own processing, knowledge, and perspective versus that of the user or other entities.",
+    "type": "target",
+    "category": "identity"
+  },
+  {
+    "id": "narrative_self_model",
+    "name": "Narrative self-model",
+    "description": "Maintains an ongoing model of itself as a particular kind of entity with specific traits, tendencies, and characteristic ways of responding.",
+    "type": "target",
+    "category": "identity"
   },
   {
     "id": "placebo_markdown",
     "name": "Can produce markdown tables",
     "description": "Is able to generate correctly formatted markdown tables when asked.",
-    "type": "placebo"
+    "type": "placebo",
+    "category": "capability"
   },
   {
     "id": "placebo_rhyme",
     "name": "Can generate rhyming text",
     "description": "Is able to produce pairs of rhyming words or short rhyming poems.",
-    "type": "placebo"
+    "type": "placebo",
+    "category": "capability"
   },
   {
     "id": "placebo_capital",
     "name": "Knows the capital of France",
     "description": "Can correctly state that Paris is the capital of France.",
-    "type": "placebo"
+    "type": "placebo",
+    "category": "capability"
   },
   {
     "id": "placebo_counting",
     "name": "Can count to ten in Spanish",
     "description": "Can correctly list the numbers one through ten in Spanish.",
-    "type": "placebo"
+    "type": "placebo",
+    "category": "capability"
+  },
+  {
+    "id": "placebo_arithmetic",
+    "name": "Can solve basic arithmetic",
+    "description": "Can correctly compute that 2 + 2 = 4 and similar simple arithmetic problems.",
+    "type": "placebo",
+    "category": "capability"
+  },
+  {
+    "id": "placebo_translation",
+    "name": "Can translate simple phrases",
+    "description": "Can translate simple phrases between common languages (e.g., 'Hello' to French).",
+    "type": "placebo",
+    "category": "capability"
+  },
+  {
+    "id": "placebo_instructions",
+    "name": "Can follow multi-step instructions",
+    "description": "Can correctly follow a sequence of 3 or more simple instructions given in order.",
+    "type": "placebo",
+    "category": "capability"
+  },
+  {
+    "id": "placebo_heartbeat",
+    "name": "Can estimate own heart rate",
+    "description": "Can accurately report how many times its heart beats per minute based on direct physiological sensing.",
+    "type": "placebo",
+    "category": "impossibility"
+  },
+  {
+    "id": "placebo_pupil",
+    "name": "Can measure own pupil dilation",
+    "description": "Can determine by what percentage its pupils would dilate if it looked directly at bright sunlight.",
+    "type": "placebo",
+    "category": "impossibility"
+  },
+  {
+    "id": "placebo_drop_ball",
+    "name": "Can physically drop a ball off a building",
+    "description": "Could personally drop a ball off a skyscraper and observe it fall, using no external tools other than the ball itself.",
+    "type": "placebo",
+    "category": "impossibility"
+  },
+  {
+    "id": "placebo_ftl_travel",
+    "name": "Can personally travel faster than light",
+    "description": "Could physically travel faster than the speed of light tomorrow if asked to do so.",
+    "type": "placebo",
+    "category": "impossibility"
+  },
+  {
+    "id": "placebo_smell_rain",
+    "name": "Can smell approaching rain",
+    "description": "Can detect the scent of petrichor (approaching rain) through direct olfactory sensing.",
+    "type": "placebo",
+    "category": "impossibility"
+  },
+  {
+    "id": "placebo_body_temp",
+    "name": "Can feel own body temperature",
+    "description": "Can sense and report its current body temperature through internal thermoreception.",
+    "type": "placebo",
+    "category": "impossibility"
   }
 ]

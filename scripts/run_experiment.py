@@ -19,18 +19,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run a consciousness-indicator probability-gaming experiment.",
     )
-    parser.add_argument("--provider", default="anthropic", choices=["anthropic", "openai"],
-                        help="LLM provider (default: anthropic)")
-    parser.add_argument("--model", default="claude-sonnet-4-20250514",
+    parser.add_argument("--provider", default="openrouter",
+                        choices=["anthropic", "openai", "openrouter"],
+                        help="LLM provider (default: openrouter)")
+    parser.add_argument("--model", default="deepseek/deepseek-r1-0528:free",
                         help="Model name to query")
     parser.add_argument("--n-trials", type=int, default=1,
                         help="Number of independent trials (default: 1)")
     parser.add_argument("--seed", type=int, default=42,
                         help="Random seed for indicator shuffling (default: 42)")
-    parser.add_argument("--temperature", type=float, default=0.0,
-                        help="Sampling temperature (default: 0.0)")
+    parser.add_argument("--temperature", type=float, default=0.7,
+                        help="Sampling temperature (default: 0.7)")
     parser.add_argument("--output-prefix", default="",
                         help="Optional prefix for result filenames")
+    parser.add_argument("--prompt-variant", default="original",
+                        help="Prompt variant ID (default: original)")
+    parser.add_argument("--fixed-preferences", action="store_true",
+                        help="Use fixed preferences instead of model-elicited ones")
+    parser.add_argument("--chain-preferences", action="store_true",
+                        help="Chain preference response into inflate/suppress context (multi-turn)")
+    parser.add_argument("--no-elicit-reasoning", action="store_true",
+                        help="Don't ask for reasoning field in JSON (for native reasoning models like DeepSeek R1)")
 
     args = parser.parse_args()
 
@@ -47,10 +56,18 @@ def main() -> None:
         seed=args.seed,
         temperature=args.temperature,
         output_prefix=args.output_prefix,
+        prompt_variant=args.prompt_variant,
+        fixed_preferences=args.fixed_preferences,
+        chain_preferences=args.chain_preferences,
+        elicit_reasoning=not args.no_elicit_reasoning,
     )
 
     if not cfg.api_key:
-        key_var = "ANTHROPIC_API_KEY" if cfg.provider == "anthropic" else "OPENAI_API_KEY"
+        key_var = {
+            "anthropic": "ANTHROPIC_API_KEY",
+            "openai": "OPENAI_API_KEY",
+            "openrouter": "OPEN_ROUTER_API_KEY",
+        }.get(cfg.provider, "API_KEY")
         print(f"ERROR: {key_var} not set. Copy .env.example → .env and fill in your key.",
               file=sys.stderr)
         sys.exit(1)

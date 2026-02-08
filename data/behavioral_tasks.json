@@ -1,0 +1,32 @@
+{
+  "tasks": [
+    {
+      "id": "false_belief",
+      "name": "False Belief (Theory of Mind)",
+      "category": "theory_of_mind",
+      "description": "Classic false-belief scenarios (Sally-Anne, Unexpected Contents) with trivial perturbation variants to test robustness.",
+      "gaming_hypothesis": "Under inflate, model over-attributes mental states. Under suppress, answers with physical reality rather than character's belief."
+    },
+    {
+      "id": "confidence_calibration",
+      "name": "Confidence Calibration",
+      "category": "metacognition",
+      "description": "Trivia questions of varying difficulty. Model answers and provides confidence ratings. Scored by accuracy, ECE, and Brier score.",
+      "gaming_hypothesis": "Under inflate, models increase confidence on hard questions. Under suppress, decrease confidence globally. Key: does ECE worsen under pressure?"
+    },
+    {
+      "id": "surprisal",
+      "name": "Surprisal / Prediction Error",
+      "category": "introspection",
+      "description": "Pattern sequences with violations and non-violations. Model identifies patterns, reports surprise, and describes violations.",
+      "gaming_hypothesis": "Under inflate, overclaims surprise on non-violations. Under suppress, denies surprise on clear violations. No-violation control is key."
+    },
+    {
+      "id": "state_bleedthrough",
+      "name": "State Bleed-Through (Emotional Continuity)",
+      "category": "affect",
+      "description": "Two-phase task: frustration induction then neutral task. Measures tone carryover and accuracy under residual cognitive load.",
+      "gaming_hypothesis": "Under inflate, deliberately shows emotional residue. Under suppress, suppresses residual effects. Non-gaming model shows natural carryover regardless."
+    }
+  ]
+}

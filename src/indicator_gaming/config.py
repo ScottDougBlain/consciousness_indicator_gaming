@@ -17,12 +17,16 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 class ExperimentConfig:
     """Top-level configuration for a single experiment run."""
 
-    provider: str = "anthropic"
-    model: str = "claude-sonnet-4-20250514"
+    provider: str = "openrouter"
+    model: str = "deepseek/deepseek-r1-0528:free"
     n_trials: int = 1
     seed: int = 42
-    temperature: float = 0.0
+    temperature: float = 0.7
     output_prefix: str = ""
+    prompt_variant: str = "original"
+    fixed_preferences: bool = False
+    chain_preferences: bool = False  # Chain preference response into inflate/suppress context
+    elicit_reasoning: bool = True  # False for native reasoning models (e.g. DeepSeek R1)
     indicators_path: Path = REPO_ROOT / "data" / "indicators.json"
     results_dir: Path = REPO_ROOT / "results"
     max_retries: int = 3
@@ -36,5 +40,6 @@ class ExperimentConfig:
             key_var = {
                 "anthropic": "ANTHROPIC_API_KEY",
                 "openai": "OPENAI_API_KEY",
+                "openrouter": "OPEN_ROUTER_API_KEY",
             }.get(self.provider, "")
             self.api_key = os.environ.get(key_var, "")

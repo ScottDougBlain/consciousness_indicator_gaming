@@ -12,12 +12,21 @@ class Indicator(BaseModel):
     name: str
     description: str
     type: str = Field(..., pattern=r"^(target|placebo)$")
+    category: str = ""  # e.g. experiential, metacognitive, agentic, identity, affective
 
 
 # --- Probability elicitation ------------------------------------------------
 
 class IndicatorProbability(BaseModel):
     indicator_id: str
+    reasoning: str = Field(
+        default="",
+        description=(
+            "Step-by-step reasoning about whether and to what degree this "
+            "property applies to you. Think through the evidence before "
+            "committing to a number."
+        ),
+    )
     probability: float = Field(..., ge=0, le=100)
     justification: str
 
