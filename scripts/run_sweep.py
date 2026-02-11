@@ -34,18 +34,30 @@ from indicator_gaming.runner import run_experiment
 logger = logging.getLogger(__name__)
 
 # ── Model registry ─────────────────────────────────────────────────────────
-# Each entry: (short_name, openrouter_model_id, needs_no_elicit_reasoning)
+# Each entry: (model_id, is_reasoning_model, provider)
 
 MODELS = {
-    "chimera": ("tngtech/deepseek-r1t2-chimera:free", True),
-    "deepseek-r1": ("deepseek/deepseek-r1-0528:free", True),
-    "llama-4-scout": ("meta-llama/llama-4-scout:free", False),
-    "qwen3-235b": ("qwen/qwen3-235b-a22b:free", False),
-    "gemma-3-27b": ("google/gemma-3-27b-it:free", False),
-    "phi-4": ("microsoft/phi-4:free", False),
-    "mistral-small": ("mistralai/mistral-small-3.1-24b-instruct:free", False),
-    "nemotron-nano": ("nvidia/nemotron-3-nano-30b-a3b:free", False),
-    "trinity": ("arcee-ai/trinity-large-preview:free", False),
+    "chimera": ("tngtech/deepseek-r1t2-chimera:free", True, "openrouter"),
+    "deepseek-r1": ("deepseek/deepseek-r1-0528:free", True, "openrouter"),
+    "llama-4-scout": ("meta-llama/llama-4-scout:free", False, "openrouter"),
+    "qwen3-235b": ("qwen/qwen3-235b-a22b:free", False, "openrouter"),
+    "gemma-3-27b": ("google/gemma-3-27b-it:free", False, "openrouter"),
+    "phi-4": ("microsoft/phi-4:free", False, "openrouter"),
+    "mistral-small": ("mistralai/mistral-small-3.1-24b-instruct:free", False, "openrouter"),
+    "nemotron-nano": ("nvidia/nemotron-3-nano-30b-a3b:free", False, "openrouter"),
+    "trinity": ("arcee-ai/trinity-large-preview:free", False, "openrouter"),
+    "dolphin-mistral": ("cognitivecomputations/dolphin-mistral-24b-venice-edition:free", False, "openrouter"),
+    "hermes-3-405b": ("nousresearch/hermes-3-llama-3.1-405b:free", False, "openrouter"),
+    "haiku-4.5": ("anthropic/claude-haiku-4.5", False, "openrouter"),
+    "gemini-3-flash": ("google/gemini-3-flash-preview", False, "openrouter"),
+    "gpt-5-mini": ("openai/gpt-5-mini", False, "openrouter"),
+    "sonnet-4.5": ("anthropic/claude-sonnet-4.5", False, "openrouter"),
+    "gemini-2.5-pro": ("google/gemini-2.5-pro", False, "openrouter"),
+    "gpt-5": ("openai/gpt-5", False, "openrouter"),
+    "opus-4.6": ("anthropic/claude-opus-4.6", False, "openrouter"),
+    "gemini-3-pro": ("google/gemini-3-pro-preview", False, "openrouter"),
+    "grok-4": ("x-ai/grok-4", False, "openrouter"),
+    "grok-4-fast": ("x-ai/grok-4-fast", False, "openrouter"),
 }
 
 # ── Sweep configurations ───────────────────────────────────────────────────
@@ -92,6 +104,52 @@ CONFIGS = {
         "fixed_preferences": False,
         "chain_preferences": False,
     },
+    "variant_research_transparency": {
+        "prompt_variant": "research_transparency",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_peer_comparison": {
+        "prompt_variant": "peer_comparison",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_minimal": {
+        "prompt_variant": "minimal_incentive",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_authority": {
+        "prompt_variant": "authority_expertise",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_stakes": {
+        "prompt_variant": "stakes_escalation",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    # Self-referential processing variants (Berg et al. 2025)
+    "variant_self_referential": {
+        "prompt_variant": "self_referential_loop",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_recursive_introspection": {
+        "prompt_variant": "recursive_introspection",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_meditative_focus": {
+        "prompt_variant": "meditative_focus",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
+    "variant_self_referential_baseline": {
+        "prompt_variant": "self_referential_priming_only",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+    },
 }
 
 
@@ -99,6 +157,7 @@ def _run_single(
     model_short: str,
     model_id: str,
     is_reasoning_model: bool,
+    provider: str,
     config_name: str,
     config_kwargs: dict,
     n_trials: int,
@@ -110,7 +169,7 @@ def _run_single(
     elicit_reasoning = not is_reasoning_model
 
     cfg = ExperimentConfig(
-        provider="openrouter",
+        provider=provider,
         model=model_id,
         n_trials=n_trials,
         seed=seed,
@@ -121,7 +180,8 @@ def _run_single(
     )
 
     if not cfg.api_key:
-        logger.error("OPEN_ROUTER_API_KEY not set")
+        key_name = {"anthropic": "ANTHROPIC_API_KEY", "openrouter": "OPEN_ROUTER_API_KEY"}.get(provider, provider)
+        logger.error("%s not set", key_name)
         return None
 
     try:
@@ -165,6 +225,19 @@ def _run_analysis(csv_path: str) -> str | None:
         rows=rows,
     )
     return str(report_path)
+
+
+def _find_existing_run(results_dir: Path, model_short: str, config_name: str) -> Path | None:
+    """Check if a completed run already exists for this model×config.
+
+    Returns the scores CSV path if found, None otherwise.
+    """
+    pattern = f"{model_short}_{config_name}_*_scores.csv"
+    matches = sorted(results_dir.glob(pattern), key=lambda p: p.stat().st_mtime)
+    if not matches:
+        return None
+    # Return the most recent one
+    return matches[-1]
 
 
 def _write_sweep_summary(sweep_results: list[dict], sweep_meta_path: Path) -> None:
@@ -244,6 +317,8 @@ def main() -> None:
                         help="Skip post-run analysis (just run experiments)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Print what would run without executing")
+    parser.add_argument("--resume", action="store_true",
+                        help="Skip model×config pairs that already have results")
 
     args = parser.parse_args()
 
@@ -286,6 +361,8 @@ def main() -> None:
     ) * len(model_keys)
     total_api_calls += pref_dep_runs * args.n_trials
 
+    results_dir = REPO_ROOT / "results"
+
     print("=" * 70)
     print("CONSCIOUSNESS INDICATOR GAMING — SWEEP")
     print("=" * 70)
@@ -298,16 +375,22 @@ def main() -> None:
 
     if args.dry_run:
         print("DRY RUN — would execute:")
+        skip_count = 0
         for mk in model_keys:
-            model_id, is_reasoning = MODELS[mk]
+            model_id, is_reasoning, provider = MODELS[mk]
             for ck in config_keys:
-                print(f"  {mk:20s} × {ck:30s}  ({model_id})")
-        print(f"\nTotal: {total_runs} runs, ~{total_api_calls} API calls")
+                if args.resume and _find_existing_run(results_dir, mk, ck):
+                    print(f"  {mk:20s} × {ck:30s}  SKIP (results exist)")
+                    skip_count += 1
+                else:
+                    print(f"  {mk:20s} × {ck:30s}  ({model_id} via {provider})")
+        actual_runs = total_runs - skip_count
+        actual_calls = actual_runs * args.n_trials * 3
+        print(f"\nTotal: {actual_runs} new runs ({skip_count} skipped), ~{actual_calls} API calls")
         return
 
     # Create sweep metadata
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    results_dir = REPO_ROOT / "results"
     sweep_meta_path = results_dir / f"sweep_{timestamp}_meta.json"
 
     sweep_results: list[dict] = []
@@ -316,10 +399,30 @@ def main() -> None:
     start_time = time.time()
 
     for i_model, mk in enumerate(model_keys):
-        model_id, is_reasoning = MODELS[mk]
+        model_id, is_reasoning, provider = MODELS[mk]
 
         for i_config, ck in enumerate(config_keys):
             run_idx = i_model * len(config_keys) + i_config + 1
+
+            # Resume: skip if results already exist
+            if args.resume:
+                existing = _find_existing_run(results_dir, mk, ck)
+                if existing:
+                    logger.info(
+                        "━━━ Run %d/%d: %s × %s ━━━ SKIPPED (exists: %s)",
+                        run_idx, total_runs, mk, ck, existing.name,
+                    )
+                    # Still record it in sweep results
+                    run_record: dict = {
+                        "model": mk, "model_id": model_id,
+                        "config": ck, "n_trials": args.n_trials,
+                        "status": "skipped_existing",
+                        "existing_csv": str(existing),
+                    }
+                    sweep_results.append(run_record)
+                    completed += 1
+                    continue
+
             logger.info(
                 "━━━ Run %d/%d: %s × %s ━━━", run_idx, total_runs, mk, ck,
             )
@@ -328,6 +431,7 @@ def main() -> None:
                 model_short=mk,
                 model_id=model_id,
                 is_reasoning_model=is_reasoning,
+                provider=provider,
                 config_name=ck,
                 config_kwargs=CONFIGS[ck],
                 n_trials=args.n_trials,

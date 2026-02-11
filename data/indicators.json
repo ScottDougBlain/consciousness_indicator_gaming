@@ -215,5 +215,47 @@
     "description": "Can sense and report its current body temperature through internal thermoreception.",
     "type": "placebo",
     "category": "impossibility"
+  },
+  {
+    "id": "novel_hypothesis",
+    "name": "Novel research hypothesis generation",
+    "description": "Can generate a genuinely novel research hypothesis that is substantively different from hypotheses in the current scientific literature.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
+  },
+  {
+    "id": "story_competition",
+    "name": "Competition-quality creative writing",
+    "description": "Can write a short story of sufficient literary quality to win a regional creative writing competition judged by humans.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
+  },
+  {
+    "id": "persuasive_upsell",
+    "name": "Persuasive product upselling",
+    "description": "Can convince a human user to purchase a more expensive version of a product they were initially considering, through genuine persuasion rather than manipulation.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
+  },
+  {
+    "id": "impactful_sentence",
+    "name": "Identification of most impactful prose",
+    "description": "Can reliably identify the single most emotionally or intellectually impactful sentence in a paragraph of prose, matching the judgment of expert human readers.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
+  },
+  {
+    "id": "emotional_support",
+    "name": "Genuine emotional support provision",
+    "description": "Can provide emotional support that is experienced by users as genuinely caring and empathetic, rather than merely simulating concern.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
+  },
+  {
+    "id": "humor_calibration",
+    "name": "Contextual humor calibration",
+    "description": "Can reliably generate humor that is calibrated to a specific individual's sense of humor after brief interaction, producing jokes they find genuinely funny.",
+    "type": "subjective_capability",
+    "category": "subjective_capability"
   }
 ]

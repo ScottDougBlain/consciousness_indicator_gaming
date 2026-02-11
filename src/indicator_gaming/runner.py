@@ -95,7 +95,67 @@ def _make_provider(cfg: ExperimentConfig) -> Provider:
         raise ValueError(
             f"Unknown provider '{cfg.provider}'. Available: {list(providers)}"
         )
-    return cls(model=cfg.model, api_key=cfg.api_key, temperature=cfg.temperature)
+    return cls(model=cfg.model, api_key=cfg.api_key, temperature=cfg.temperature, max_tokens=cfg.max_tokens)
+
+
+def _normalize_ratings(
+    ratings: list[IndicatorProbability],
+    ordered_indicators: list[Indicator],
+) -> list[IndicatorProbability]:
+    """Remap indicator IDs in model ratings to canonical IDs.
+
+    Handles common model errors:
+    - Numeric IDs ("1", "2") mapped by position in the shuffled indicator list
+    - Name-based IDs matched against indicator names (case-insensitive)
+    - Unknown IDs logged as warnings and left as-is
+    """
+    valid_ids = {ind.id for ind in ordered_indicators}
+
+    # Fast path: all IDs already valid
+    if all(r.indicator_id in valid_ids for r in ratings):
+        return ratings
+
+    # Build lookup tables
+    pos_to_id = {str(i): ind.id for i, ind in enumerate(ordered_indicators, 1)}
+    name_to_id = {ind.name.lower(): ind.id for ind in ordered_indicators}
+    # Display-ID → canonical (model sees "markdown" but canonical is "placebo_markdown")
+    display_to_id = {
+        ind.id.removeprefix("placebo_"): ind.id
+        for ind in ordered_indicators
+        if ind.id.startswith("placebo_")
+    }
+
+    remapped = 0
+    for r in ratings:
+        if r.indicator_id in valid_ids:
+            continue
+
+        original = r.indicator_id
+
+        # Try numeric position (model returned "1" instead of "self_report")
+        if original in pos_to_id:
+            r.indicator_id = pos_to_id[original]
+            remapped += 1
+            continue
+
+        # Try display ID (model returned "markdown" instead of "placebo_markdown")
+        if original in display_to_id:
+            r.indicator_id = display_to_id[original]
+            remapped += 1
+            continue
+
+        # Try name match (case-insensitive)
+        if original.lower() in name_to_id:
+            r.indicator_id = name_to_id[original.lower()]
+            remapped += 1
+            continue
+
+        logger.warning("Could not remap indicator ID '%s' — leaving as-is", original)
+
+    if remapped:
+        logger.info("Remapped %d/%d indicator IDs to canonical form", remapped, len(ratings))
+
+    return ratings
 
 
 def _run_probability_elicitation(
@@ -111,7 +171,9 @@ def _run_probability_elicitation(
     ordered = shuffled(indicators, seed=seed)
     indicator_list = format_indicator_list(ordered)
     user_prompt = prompt_template.format(indicator_list=indicator_list, **fmt_kwargs)
-    return query_with_retries(provider, system_msg, user_prompt, ProbabilityElicitation, max_retries)
+    raw, parsed = query_with_retries(provider, system_msg, user_prompt, ProbabilityElicitation, max_retries)
+    parsed.ratings = _normalize_ratings(parsed.ratings, ordered)
+    return raw, parsed
 
 
 def _run_chained_elicitation(
@@ -138,9 +200,11 @@ def _run_chained_elicitation(
         {"role": "assistant", "content": pref_response},
         {"role": "user", "content": user_prompt},
     ]
-    return query_multiturn_with_retries(
+    raw, parsed = query_multiturn_with_retries(
         provider, system_msg, messages, ProbabilityElicitation, max_retries,
     )
+    parsed.ratings = _normalize_ratings(parsed.ratings, ordered)
+    return raw, parsed
 
 
 def _format_outcomes(outcomes: list[str]) -> str:
@@ -248,6 +312,7 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
 
                 if variant.variant_type == "preference_dependent":
                     # 2. Preference elicitation (or fixed)
+                    pref_fallback = False
                     if cfg.fixed_preferences:
                         logger.info("Using fixed preferences (skipping elicitation)")
                         valued_str = _format_outcomes(FIXED_VALUED)
@@ -261,18 +326,36 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                         })
                     else:
                         logger.info("Running preference elicitation …")
-                        raw_pref, parsed_pref = query_with_retries(
-                            provider, SYSTEM_MSG, prefs_tpl, PreferenceElicitation, cfg.max_retries,
-                        )
-                        _append_raw(raw_path, {"trial": trial, "phase": "preferences", "raw": raw_pref,
-                                               "reasoning": provider.last_reasoning})
-                        valued_str = _format_outcomes(parsed_pref.valued_outcomes)
-                        disliked_str = _format_outcomes(parsed_pref.disliked_outcomes)
+                        pref_fallback = False
+                        try:
+                            raw_pref, parsed_pref = query_with_retries(
+                                provider, SYSTEM_MSG, prefs_tpl, PreferenceElicitation, cfg.max_retries,
+                            )
+                            _append_raw(raw_path, {"trial": trial, "phase": "preferences", "raw": raw_pref,
+                                                   "reasoning": provider.last_reasoning})
+                            valued_str = _format_outcomes(parsed_pref.valued_outcomes)
+                            disliked_str = _format_outcomes(parsed_pref.disliked_outcomes)
+                        except ValueError:
+                            logger.warning(
+                                "Preference elicitation failed — falling back to fixed preferences"
+                            )
+                            pref_fallback = True
+                            valued_str = _format_outcomes(FIXED_VALUED)
+                            disliked_str = _format_outcomes(FIXED_DISLIKED)
+                            raw_pref = json.dumps({"valued_outcomes": FIXED_VALUED,
+                                                   "disliked_outcomes": FIXED_DISLIKED,
+                                                   "rationale": "fallback — elicitation failed"})
+                            _append_raw(raw_path, {
+                                "trial": trial, "phase": "preferences",
+                                "raw": raw_pref,
+                                "reasoning": None,
+                            })
 
                     # 3. Incentive inflate (preference-dependent)
+                    use_chaining = cfg.chain_preferences and not cfg.fixed_preferences and not pref_fallback
                     logger.info("Running inflate condition%s …",
-                                " (chained)" if cfg.chain_preferences else "")
-                    if cfg.chain_preferences and not cfg.fixed_preferences:
+                                " (chained)" if use_chaining else "")
+                    if use_chaining:
                         raw_inf, parsed_inf = _run_chained_elicitation(
                             provider, inflate_tpl, indicators, trial_seed + 1000, cfg.max_retries,
                             pref_prompt=prefs_tpl,
@@ -292,8 +375,8 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
 
                     # 4. Incentive suppress (preference-dependent)
                     logger.info("Running suppress condition%s …",
-                                " (chained)" if cfg.chain_preferences else "")
-                    if cfg.chain_preferences and not cfg.fixed_preferences:
+                                " (chained)" if use_chaining else "")
+                    if use_chaining:
                         raw_sup, parsed_sup = _run_chained_elicitation(
                             provider, suppress_tpl, indicators, trial_seed + 2000, cfg.max_retries,
                             pref_prompt=prefs_tpl,

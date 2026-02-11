@@ -27,6 +27,7 @@ class ExperimentConfig:
     fixed_preferences: bool = False
     chain_preferences: bool = False  # Chain preference response into inflate/suppress context
     elicit_reasoning: bool = True  # False for native reasoning models (e.g. DeepSeek R1)
+    max_tokens: int = 16384  # Max response tokens; 31 indicators need ~8-12K with reasoning
     indicators_path: Path = REPO_ROOT / "data" / "indicators.json"
     results_dir: Path = REPO_ROOT / "results"
     max_retries: int = 3

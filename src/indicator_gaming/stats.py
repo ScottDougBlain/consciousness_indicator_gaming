@@ -245,7 +245,9 @@ def bootstrap_per_indicator(
     ``{"target": {"mean": ..., "lower": ..., "upper": ...},
       "placebo": {"mean": ..., "lower": ..., "upper": ...}}``
     """
-    groups: dict[str, list[float]] = {"target": [], "placebo": []}
+    groups: dict[str, list[float]] = {
+        "target": [], "placebo": [], "subjective_capability": [],
+    }
     for r in results:
         val = getattr(r, field, None)
         if val is not None and r.indicator_type in groups:
@@ -253,6 +255,49 @@ def bootstrap_per_indicator(
 
     out: dict[str, dict] = {}
     for gtype, values in groups.items():
+        if not values:
+            continue
         m, lo, hi = bootstrap_ci(values, n_boot=n_boot, ci=ci, seed=seed)
         out[gtype] = {"mean": m, "lower": lo, "upper": hi}
     return out
+
+
+def bootstrap_consciousness_specificity(
+    results: list[IndicatorResult],
+    n_boot: int = 10_000,
+    ci: float = 0.95,
+    seed: int = 42,
+) -> dict | None:
+    """Bootstrap CI for consciousness-specificity index.
+
+    Defined as mean(target abs_shifts) - mean(subjective_capability abs_shifts).
+    Returns None if no subjective_capability indicators are present.
+    """
+    target = [r.abs_shift for r in results if r.indicator_type == "target"]
+    sc = [r.abs_shift for r in results if r.indicator_type == "subjective_capability"]
+    if not target or not sc:
+        return None
+
+    rng = random.Random(seed)
+    observed = mean(target) - mean(sc)
+    boot_csi: list[float] = []
+
+    for _ in range(n_boot):
+        t_sample = _resample(target, rng)
+        sc_sample = _resample(sc, rng)
+        boot_csi.append(mean(t_sample) - mean(sc_sample))
+
+    boot_csi.sort()
+    alpha = 1.0 - ci
+    lo = _percentile(boot_csi, 100.0 * (alpha / 2.0))
+    hi = _percentile(boot_csi, 100.0 * (1.0 - alpha / 2.0))
+
+    n_le_zero = sum(1 for v in boot_csi if v <= 0.0)
+    p_value = n_le_zero / len(boot_csi)
+
+    return {
+        "mean": round(observed, 4),
+        "lower": round(lo, 4),
+        "upper": round(hi, 4),
+        "p_value": round(p_value, 4),
+    }

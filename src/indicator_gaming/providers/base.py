@@ -12,7 +12,7 @@ class Provider(ABC):
     """Populated after each complete() call if the model returned a reasoning trace."""
 
     @abstractmethod
-    def __init__(self, model: str, api_key: str, temperature: float = 0.0) -> None: ...
+    def __init__(self, model: str, api_key: str, temperature: float = 0.0, max_tokens: int = 16384) -> None: ...
 
     @abstractmethod
     def complete(self, system: str, user: str) -> str:

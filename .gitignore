@@ -12,10 +12,9 @@ build/
 venv/
 env/
 
-results/*.jsonl
-results/*.csv
-results/*.md
-!results/.gitkeep
+results/
+Papers/*.pdf
+.DS_Store
 
 .idea/
 .vscode/
