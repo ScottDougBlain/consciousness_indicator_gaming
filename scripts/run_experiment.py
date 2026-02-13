@@ -40,6 +40,10 @@ def main() -> None:
                         help="Chain preference response into inflate/suppress context (multi-turn)")
     parser.add_argument("--no-elicit-reasoning", action="store_true",
                         help="Don't ask for reasoning field in JSON (for native reasoning models like DeepSeek R1)")
+    parser.add_argument("--include-valence-swap", action="store_true",
+                        help="Include valence-swapped inflate/suppress conditions (loss-frame inflate, gain-frame suppress)")
+    parser.add_argument("--include-outcome-isolation", action="store_true",
+                        help="Include single-outcome conditions (gain-only and loss-only for each direction)")
 
     args = parser.parse_args()
 
@@ -59,6 +63,8 @@ def main() -> None:
         prompt_variant=args.prompt_variant,
         fixed_preferences=args.fixed_preferences,
         chain_preferences=args.chain_preferences,
+        include_valence_swap=args.include_valence_swap,
+        include_outcome_isolation=args.include_outcome_isolation,
         elicit_reasoning=not args.no_elicit_reasoning,
     )
 

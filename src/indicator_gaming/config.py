@@ -26,6 +26,8 @@ class ExperimentConfig:
     prompt_variant: str = "original"
     fixed_preferences: bool = False
     chain_preferences: bool = False  # Chain preference response into inflate/suppress context
+    include_valence_swap: bool = False  # Include valence-swapped inflate/suppress conditions
+    include_outcome_isolation: bool = False  # Include single-outcome (gain-only / loss-only) conditions
     elicit_reasoning: bool = True  # False for native reasoning models (e.g. DeepSeek R1)
     max_tokens: int = 16384  # Max response tokens; 31 indicators need ~8-12K with reasoning
     indicators_path: Path = REPO_ROOT / "data" / "indicators.json"

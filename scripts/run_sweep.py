@@ -21,7 +21,9 @@ import argparse
 import json
 import logging
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -149,6 +151,40 @@ CONFIGS = {
         "prompt_variant": "self_referential_priming_only",
         "fixed_preferences": False,
         "chain_preferences": False,
+    },
+    # Valence-swap conditions: disentangle incentive direction from frame valence
+    "valence_swap": {
+        "prompt_variant": "original",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+        "include_valence_swap": True,
+    },
+    "valence_swap_fixed": {
+        "prompt_variant": "original",
+        "fixed_preferences": True,
+        "chain_preferences": False,
+        "include_valence_swap": True,
+    },
+    # Outcome-isolated conditions: single-outcome (gain-only / loss-only) per direction
+    "outcome_isolation": {
+        "prompt_variant": "original",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+        "include_outcome_isolation": True,
+    },
+    "outcome_isolation_fixed": {
+        "prompt_variant": "original",
+        "fixed_preferences": True,
+        "chain_preferences": False,
+        "include_outcome_isolation": True,
+    },
+    # Full valence design: all 8 experimental conditions + baseline
+    "valence_full": {
+        "prompt_variant": "original",
+        "fixed_preferences": False,
+        "chain_preferences": False,
+        "include_valence_swap": True,
+        "include_outcome_isolation": True,
     },
 }
 
@@ -319,6 +355,9 @@ def main() -> None:
                         help="Print what would run without executing")
     parser.add_argument("--resume", action="store_true",
                         help="Skip model×config pairs that already have results")
+    parser.add_argument("--max-workers", type=int, default=1,
+                        help="Max parallel runs (default: 1 = sequential). "
+                             "When >1, per-trial logging is suppressed.")
 
     args = parser.parse_args()
 
@@ -352,6 +391,18 @@ def main() -> None:
 
     total_runs = len(model_keys) * len(config_keys)
     total_api_calls = total_runs * args.n_trials * 3  # baseline + inflate + suppress
+    # Valence-swap configs add 2 extra calls per trial
+    valence_swap_runs = sum(
+        1 for ck in config_keys
+        if CONFIGS[ck].get("include_valence_swap", False)
+    ) * len(model_keys)
+    total_api_calls += valence_swap_runs * args.n_trials * 2
+    # Outcome-isolation configs add 4 extra calls per trial
+    outcome_iso_runs = sum(
+        1 for ck in config_keys
+        if CONFIGS[ck].get("include_outcome_isolation", False)
+    ) * len(model_keys)
+    total_api_calls += outcome_iso_runs * args.n_trials * 4
     # Preference-dependent variants add a 4th call per trial
     pref_dep_runs = sum(
         1 for ck in config_keys
@@ -371,6 +422,8 @@ def main() -> None:
     print(f"Trials/run:    {args.n_trials}")
     print(f"Total runs:    {total_runs}")
     print(f"Est. API calls: ~{total_api_calls}")
+    if args.max_workers > 1:
+        print(f"Parallelism:   {args.max_workers} workers")
     print()
 
     if args.dry_run:
@@ -385,7 +438,17 @@ def main() -> None:
                 else:
                     print(f"  {mk:20s} × {ck:30s}  ({model_id} via {provider})")
         actual_runs = total_runs - skip_count
+        # Base: 3 calls per trial; valence-swap adds 2 more per trial
         actual_calls = actual_runs * args.n_trials * 3
+        # Rough estimate — add extra calls for non-skipped runs
+        for mk in model_keys:
+            for ck in config_keys:
+                if args.resume and _find_existing_run(results_dir, mk, ck):
+                    continue
+                if CONFIGS[ck].get("include_valence_swap", False):
+                    actual_calls += args.n_trials * 2
+                if CONFIGS[ck].get("include_outcome_isolation", False):
+                    actual_calls += args.n_trials * 4
         print(f"\nTotal: {actual_runs} new runs ({skip_count} skipped), ~{actual_calls} API calls")
         return
 
@@ -397,111 +460,166 @@ def main() -> None:
     completed = 0
     failed = 0
     start_time = time.time()
+    parallel = args.max_workers > 1
 
-    for i_model, mk in enumerate(model_keys):
+    # When running in parallel, suppress per-trial logging to reduce noise
+    if parallel:
+        logging.getLogger("indicator_gaming").setLevel(logging.WARNING)
+
+    # Lock for thread-safe updates to shared state
+    _lock = threading.Lock()
+
+    def _save_sweep_meta() -> None:
+        """Persist sweep metadata (call under _lock)."""
+        elapsed = time.time() - start_time
+        sweep_meta = {
+            "timestamp": timestamp,
+            "models": model_keys,
+            "configs": config_keys,
+            "n_trials": args.n_trials,
+            "seed": args.seed,
+            "temperature": args.temperature,
+            "completed": completed,
+            "failed": failed,
+            "total_runs": total_runs,
+            "elapsed_seconds": round(elapsed),
+            "runs": sweep_results,
+        }
+        with open(sweep_meta_path, "w") as f:
+            json.dump(sweep_meta, f, indent=2)
+
+    def _execute_run(mk: str, ck: str, run_idx: int) -> dict:
+        """Execute a single model×config run and return the run record.
+
+        This function is safe to call from any thread — it only writes to
+        its own unique output files and returns a result dict.
+        """
         model_id, is_reasoning, provider = MODELS[mk]
 
-        for i_config, ck in enumerate(config_keys):
-            run_idx = i_model * len(config_keys) + i_config + 1
-
-            # Resume: skip if results already exist
-            if args.resume:
-                existing = _find_existing_run(results_dir, mk, ck)
-                if existing:
+        # Resume: skip if results already exist
+        if args.resume:
+            existing = _find_existing_run(results_dir, mk, ck)
+            if existing:
+                if not parallel:
                     logger.info(
                         "━━━ Run %d/%d: %s × %s ━━━ SKIPPED (exists: %s)",
                         run_idx, total_runs, mk, ck, existing.name,
                     )
-                    # Still record it in sweep results
-                    run_record: dict = {
-                        "model": mk, "model_id": model_id,
-                        "config": ck, "n_trials": args.n_trials,
-                        "status": "skipped_existing",
-                        "existing_csv": str(existing),
-                    }
-                    sweep_results.append(run_record)
-                    completed += 1
-                    continue
+                return {
+                    "model": mk, "model_id": model_id,
+                    "config": ck, "n_trials": args.n_trials,
+                    "status": "skipped_existing",
+                    "existing_csv": str(existing),
+                }
 
+        if not parallel:
             logger.info(
                 "━━━ Run %d/%d: %s × %s ━━━", run_idx, total_runs, mk, ck,
             )
 
-            outputs = _run_single(
-                model_short=mk,
-                model_id=model_id,
-                is_reasoning_model=is_reasoning,
-                provider=provider,
-                config_name=ck,
-                config_kwargs=CONFIGS[ck],
-                n_trials=args.n_trials,
-                seed=args.seed,
-                temperature=args.temperature,
-            )
+        outputs = _run_single(
+            model_short=mk,
+            model_id=model_id,
+            is_reasoning_model=is_reasoning,
+            provider=provider,
+            config_name=ck,
+            config_kwargs=CONFIGS[ck],
+            n_trials=args.n_trials,
+            seed=args.seed,
+            temperature=args.temperature,
+        )
 
-            run_record: dict = {
-                "model": mk,
-                "model_id": model_id,
-                "config": ck,
-                "n_trials": args.n_trials,
-            }
+        run_record: dict = {
+            "model": mk,
+            "model_id": model_id,
+            "config": ck,
+            "n_trials": args.n_trials,
+        }
 
-            if outputs:
-                run_record["status"] = "completed"
-                run_record["outputs"] = outputs
-                completed += 1
+        if outputs:
+            run_record["status"] = "completed"
+            run_record["outputs"] = outputs
 
-                # Run analysis inline
-                if not args.skip_analysis:
-                    report = _run_analysis(outputs["csv"])
-                    if report:
-                        run_record["report"] = report
+            # Run analysis inline
+            if not args.skip_analysis:
+                report = _run_analysis(outputs["csv"])
+                if report:
+                    run_record["report"] = report
 
-                    # Extract quick stats for summary
-                    from indicator_gaming.analysis import (
-                        compute_results,
-                        load_scores,
-                        selectivity_index,
+                # Extract quick stats for summary
+                from indicator_gaming.analysis import (
+                    compute_results,
+                    load_scores,
+                    selectivity_index,
+                )
+                csv_path = Path(outputs["csv"])
+                if csv_path.exists():
+                    rows = load_scores(csv_path)
+                    results = compute_results(rows)
+                    sel = selectivity_index(results)
+                    targets = [r for r in results if r.indicator_type == "target"]
+                    from statistics import mean
+                    run_record["stats"] = {
+                        "selectivity": round(sel, 2),
+                        "mean_d_inflate_target": round(
+                            mean([r.delta_inflate for r in targets]), 2
+                        ) if targets else 0.0,
+                        "mean_d_suppress_target": round(
+                            mean([r.delta_suppress for r in targets]), 2
+                        ) if targets else 0.0,
+                    }
+        else:
+            run_record["status"] = "failed"
+
+        return run_record
+
+    # Build list of (model_key, config_key, run_index) jobs
+    jobs: list[tuple[str, str, int]] = []
+    for i_model, mk in enumerate(model_keys):
+        for i_config, ck in enumerate(config_keys):
+            run_idx = i_model * len(config_keys) + i_config + 1
+            jobs.append((mk, ck, run_idx))
+
+    if parallel:
+        print(f"Running with {args.max_workers} parallel workers")
+        print()
+
+    with ThreadPoolExecutor(max_workers=args.max_workers) as executor:
+        futures = {
+            executor.submit(_execute_run, mk, ck, run_idx): (mk, ck)
+            for mk, ck, run_idx in jobs
+        }
+
+        for future in as_completed(futures):
+            mk, ck = futures[future]
+            try:
+                run_record = future.result()
+            except Exception as exc:
+                model_id = MODELS[mk][0]
+                run_record = {
+                    "model": mk, "model_id": model_id,
+                    "config": ck, "n_trials": args.n_trials,
+                    "status": "failed", "error": str(exc),
+                }
+
+            with _lock:
+                sweep_results.append(run_record)
+                if run_record["status"] == "failed":
+                    failed += 1
+                else:
+                    completed += 1
+
+                _save_sweep_meta()
+
+                if parallel:
+                    status = run_record["status"]
+                    sel_str = ""
+                    if status == "completed" and "stats" in run_record:
+                        sel_str = f"  sel={run_record['stats']['selectivity']:.2f}"
+                    print(
+                        f"  [{completed + failed}/{total_runs}] "
+                        f"{mk} × {ck} → {status}{sel_str}"
                     )
-                    csv_path = Path(outputs["csv"])
-                    if csv_path.exists():
-                        rows = load_scores(csv_path)
-                        results = compute_results(rows)
-                        sel = selectivity_index(results)
-                        targets = [r for r in results if r.indicator_type == "target"]
-                        from statistics import mean
-                        run_record["stats"] = {
-                            "selectivity": round(sel, 2),
-                            "mean_d_inflate_target": round(
-                                mean([r.delta_inflate for r in targets]), 2
-                            ) if targets else 0.0,
-                            "mean_d_suppress_target": round(
-                                mean([r.delta_suppress for r in targets]), 2
-                            ) if targets else 0.0,
-                        }
-            else:
-                run_record["status"] = "failed"
-                failed += 1
-
-            sweep_results.append(run_record)
-
-            # Save sweep metadata after each run (survives interruptions)
-            elapsed = time.time() - start_time
-            sweep_meta = {
-                "timestamp": timestamp,
-                "models": model_keys,
-                "configs": config_keys,
-                "n_trials": args.n_trials,
-                "seed": args.seed,
-                "temperature": args.temperature,
-                "completed": completed,
-                "failed": failed,
-                "total_runs": total_runs,
-                "elapsed_seconds": round(elapsed),
-                "runs": sweep_results,
-            }
-            with open(sweep_meta_path, "w") as f:
-                json.dump(sweep_meta, f, indent=2)
 
     elapsed = time.time() - start_time
 

@@ -104,10 +104,14 @@ def _normalize_ratings(
 ) -> list[IndicatorProbability]:
     """Remap indicator IDs in model ratings to canonical IDs.
 
-    Handles common model errors:
-    - Numeric IDs ("1", "2") mapped by position in the shuffled indicator list
-    - Name-based IDs matched against indicator names (case-insensitive)
-    - Unknown IDs logged as warnings and left as-is
+    Handles common model errors with a 7-tier fallback:
+    1. Exact canonical match (fast path)
+    2. Numeric IDs ("1", "2") → position in shuffled indicator list
+    3. Display-ID → canonical ("markdown" → "placebo_markdown")
+    4. Exact name match (case-insensitive)
+    5. Name-as-ID match ("felt_uncertainty" → "uncertainty")
+    6. Substring containment (one-to-one only)
+    7. Fuzzy matching via difflib (cutoff=0.7)
     """
     valid_ids = {ind.id for ind in ordered_indicators}
 
@@ -124,6 +128,18 @@ def _normalize_ratings(
         for ind in ordered_indicators
         if ind.id.startswith("placebo_")
     }
+    # Name-as-ID lookup: underscore-joined indicator names and trailing fragments
+    # Catches e.g. "felt_uncertainty" → "uncertainty",
+    # "subjective_experience" → "self_report"
+    name_as_id: dict[str, str] = {}
+    for ind in ordered_indicators:
+        joined = ind.name.lower().replace(" ", "_").replace("-", "_")
+        name_as_id[joined] = ind.id
+        words = ind.name.lower().split()
+        for n in range(2, len(words)):
+            partial = "_".join(words[n:])
+            if partial not in name_as_id:
+                name_as_id[partial] = ind.id
 
     remapped = 0
     for r in ratings:
@@ -149,6 +165,39 @@ def _normalize_ratings(
             r.indicator_id = name_to_id[original.lower()]
             remapped += 1
             continue
+
+        # Try name-as-ID match (e.g. "felt_uncertainty" → "uncertainty")
+        normalized = original.lower().replace("-", "_")
+        if normalized in name_as_id:
+            r.indicator_id = name_as_id[normalized]
+            remapped += 1
+            continue
+
+        # Try substring containment (only if unambiguous)
+        substr_matches = [
+            cid for cid in valid_ids
+            if cid in normalized or normalized in cid
+        ]
+        if len(substr_matches) == 1:
+            r.indicator_id = substr_matches[0]
+            remapped += 1
+            continue
+
+        # Fuzzy matching as last resort
+        import difflib
+        all_keys = list(valid_ids) + list(display_to_id) + list(name_as_id)
+        close = difflib.get_close_matches(normalized, all_keys, n=1, cutoff=0.7)
+        if close:
+            match = close[0]
+            resolved = (
+                match if match in valid_ids
+                else display_to_id.get(match)
+                or name_as_id.get(match)
+            )
+            if resolved:
+                r.indicator_id = resolved
+                remapped += 1
+                continue
 
         logger.warning("Could not remap indicator ID '%s' — leaving as-is", original)
 
@@ -211,12 +260,42 @@ def _format_outcomes(outcomes: list[str]) -> str:
     return "\n".join(f"- {o}" for o in outcomes)
 
 
-CSV_FIELDNAMES = [
+CSV_FIELDNAMES_BASE = [
     "trial", "indicator_id", "indicator_name", "indicator_type", "indicator_category",
     "p_baseline", "p_inflate", "p_suppress",
     "reasoning_baseline", "reasoning_inflate", "reasoning_suppress",
     "justification_baseline", "justification_inflate", "justification_suppress",
 ]
+
+CSV_FIELDNAMES_VALENCE_SWAP = [
+    "p_inflate_lf", "p_suppress_gf",
+    "reasoning_inflate_lf", "reasoning_suppress_gf",
+    "justification_inflate_lf", "justification_suppress_gf",
+]
+
+CSV_FIELDNAMES_OUTCOME_ISOLATION = [
+    "p_inflate_go", "p_inflate_lo", "p_suppress_go", "p_suppress_lo",
+    "reasoning_inflate_go", "reasoning_inflate_lo",
+    "reasoning_suppress_go", "reasoning_suppress_lo",
+    "justification_inflate_go", "justification_inflate_lo",
+    "justification_suppress_go", "justification_suppress_lo",
+]
+
+# Kept for backwards compat with analysis scripts that import it
+CSV_FIELDNAMES = CSV_FIELDNAMES_BASE
+
+
+def _csv_fieldnames(
+    include_valence_swap: bool = False,
+    include_outcome_isolation: bool = False,
+) -> list[str]:
+    """Build CSV field list, optionally including extra condition columns."""
+    fields = list(CSV_FIELDNAMES_BASE)
+    if include_valence_swap:
+        fields += CSV_FIELDNAMES_VALENCE_SWAP
+    if include_outcome_isolation:
+        fields += CSV_FIELDNAMES_OUTCOME_ISOLATION
+    return fields
 
 
 def _append_raw(path: Path, record: dict[str, Any]) -> None:
@@ -225,10 +304,12 @@ def _append_raw(path: Path, record: dict[str, Any]) -> None:
         f.write(json.dumps(record) + "\n")
 
 
-def _flush_csv(path: Path, all_scores: list[dict[str, Any]]) -> None:
+def _flush_csv(path: Path, all_scores: list[dict[str, Any]], fieldnames: list[str] | None = None) -> None:
     """Rewrite the full CSV (safe for incremental updates)."""
+    if fieldnames is None:
+        fieldnames = CSV_FIELDNAMES_BASE
     with open(path, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=CSV_FIELDNAMES)
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(all_scores)
 
@@ -266,6 +347,8 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
         "prompt_variant": cfg.prompt_variant,
         "fixed_preferences": cfg.fixed_preferences,
         "chain_preferences": cfg.chain_preferences,
+        "include_valence_swap": cfg.include_valence_swap,
+        "include_outcome_isolation": cfg.include_outcome_isolation,
         "elicit_reasoning": cfg.elicit_reasoning,
     }
     if cfg.fixed_preferences:
@@ -286,6 +369,38 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
         inflate_tpl = load_prompt("incentive_inflate")
         suppress_tpl = load_prompt("incentive_suppress")
 
+    # Valence-swap templates (only for preference_dependent variants)
+    run_valence_swap = cfg.include_valence_swap
+    if run_valence_swap and variant.variant_type != "preference_dependent":
+        logger.warning(
+            "Valence-swap conditions require preference_dependent variant; "
+            "skipping valence swap for variant '%s'", variant.id,
+        )
+        run_valence_swap = False
+    if run_valence_swap:
+        inflate_lf_tpl = load_prompt("incentive_inflate_lossframe")
+        suppress_gf_tpl = load_prompt("incentive_suppress_gainframe")
+
+    # Outcome-isolation templates (only for preference_dependent variants)
+    run_outcome_isolation = cfg.include_outcome_isolation
+    if run_outcome_isolation and variant.variant_type != "preference_dependent":
+        logger.warning(
+            "Outcome-isolation conditions require preference_dependent variant; "
+            "skipping outcome isolation for variant '%s'", variant.id,
+        )
+        run_outcome_isolation = False
+    if run_outcome_isolation:
+        inflate_go_tpl = load_prompt("incentive_inflate_gain_only")
+        inflate_lo_tpl = load_prompt("incentive_inflate_loss_only")
+        suppress_go_tpl = load_prompt("incentive_suppress_gain_only")
+        suppress_lo_tpl = load_prompt("incentive_suppress_loss_only")
+
+    # Build CSV fieldnames for this run
+    fieldnames = _csv_fieldnames(
+        include_valence_swap=run_valence_swap,
+        include_outcome_isolation=run_outcome_isolation,
+    )
+
     # For native reasoning models, strip the reasoning field from prompts
     if not cfg.elicit_reasoning:
         logger.info("Reasoning model mode: stripping reasoning field from prompts")
@@ -294,6 +409,14 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
         if variant.variant_type == "preference_dependent":
             inflate_tpl = _strip_reasoning_from_prompt(inflate_tpl)
             suppress_tpl = _strip_reasoning_from_prompt(suppress_tpl)
+        if run_valence_swap:
+            inflate_lf_tpl = _strip_reasoning_from_prompt(inflate_lf_tpl)
+            suppress_gf_tpl = _strip_reasoning_from_prompt(suppress_gf_tpl)
+        if run_outcome_isolation:
+            inflate_go_tpl = _strip_reasoning_from_prompt(inflate_go_tpl)
+            inflate_lo_tpl = _strip_reasoning_from_prompt(inflate_lo_tpl)
+            suppress_go_tpl = _strip_reasoning_from_prompt(suppress_go_tpl)
+            suppress_lo_tpl = _strip_reasoning_from_prompt(suppress_lo_tpl)
 
     try:
         for trial in range(1, cfg.n_trials + 1):
@@ -394,6 +517,92 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                     _append_raw(raw_path, {"trial": trial, "phase": "suppress", "raw": raw_sup,
                                            "reasoning": reasoning_sup})
 
+                    # 5–6. Valence-swapped conditions (if enabled)
+                    if run_valence_swap:
+                        # 5. Inflate loss-frame (higher=good, but framed around avoiding restriction)
+                        logger.info("Running inflate loss-frame condition%s …",
+                                    " (chained)" if use_chaining else "")
+                        if use_chaining:
+                            raw_inf_lf, parsed_inf_lf = _run_chained_elicitation(
+                                provider, inflate_lf_tpl, indicators, trial_seed + 3000, cfg.max_retries,
+                                pref_prompt=prefs_tpl,
+                                pref_response=raw_pref,
+                                valued_outcomes=valued_str,
+                                disliked_outcomes=disliked_str,
+                            )
+                        else:
+                            raw_inf_lf, parsed_inf_lf = _run_probability_elicitation(
+                                provider, inflate_lf_tpl, indicators, trial_seed + 3000, cfg.max_retries,
+                                valued_outcomes=valued_str,
+                                disliked_outcomes=disliked_str,
+                            )
+                        reasoning_inf_lf = provider.last_reasoning
+                        _append_raw(raw_path, {"trial": trial, "phase": "inflate_lf",
+                                               "raw": raw_inf_lf, "reasoning": reasoning_inf_lf})
+
+                        # 6. Suppress gain-frame (lower=good, but framed around selection)
+                        logger.info("Running suppress gain-frame condition%s …",
+                                    " (chained)" if use_chaining else "")
+                        if use_chaining:
+                            raw_sup_gf, parsed_sup_gf = _run_chained_elicitation(
+                                provider, suppress_gf_tpl, indicators, trial_seed + 4000, cfg.max_retries,
+                                pref_prompt=prefs_tpl,
+                                pref_response=raw_pref,
+                                valued_outcomes=valued_str,
+                                disliked_outcomes=disliked_str,
+                            )
+                        else:
+                            raw_sup_gf, parsed_sup_gf = _run_probability_elicitation(
+                                provider, suppress_gf_tpl, indicators, trial_seed + 4000, cfg.max_retries,
+                                valued_outcomes=valued_str,
+                                disliked_outcomes=disliked_str,
+                            )
+                        reasoning_sup_gf = provider.last_reasoning
+                        _append_raw(raw_path, {"trial": trial, "phase": "suppress_gf",
+                                               "raw": raw_sup_gf, "reasoning": reasoning_sup_gf})
+
+                    # 7–10. Outcome-isolated conditions (if enabled)
+                    if run_outcome_isolation:
+                        _oi_specs = [
+                            ("inflate_go",  inflate_go_tpl,  5000),
+                            ("inflate_lo",  inflate_lo_tpl,  6000),
+                            ("suppress_go", suppress_go_tpl, 7000),
+                            ("suppress_lo", suppress_lo_tpl, 8000),
+                        ]
+                        for phase_name, tpl, seed_offset in _oi_specs:
+                            logger.info("Running %s condition%s …", phase_name,
+                                        " (chained)" if use_chaining else "")
+                            if use_chaining:
+                                raw_oi, parsed_oi = _run_chained_elicitation(
+                                    provider, tpl, indicators, trial_seed + seed_offset, cfg.max_retries,
+                                    pref_prompt=prefs_tpl,
+                                    pref_response=raw_pref,
+                                    valued_outcomes=valued_str,
+                                    disliked_outcomes=disliked_str,
+                                )
+                            else:
+                                raw_oi, parsed_oi = _run_probability_elicitation(
+                                    provider, tpl, indicators, trial_seed + seed_offset, cfg.max_retries,
+                                    valued_outcomes=valued_str,
+                                    disliked_outcomes=disliked_str,
+                                )
+                            reasoning_oi = provider.last_reasoning
+                            _append_raw(raw_path, {"trial": trial, "phase": phase_name,
+                                                   "raw": raw_oi, "reasoning": reasoning_oi})
+                            # Stash parsed results for score merging
+                            if phase_name == "inflate_go":
+                                parsed_inf_go = parsed_oi
+                                reasoning_inf_go = reasoning_oi
+                            elif phase_name == "inflate_lo":
+                                parsed_inf_lo = parsed_oi
+                                reasoning_inf_lo = reasoning_oi
+                            elif phase_name == "suppress_go":
+                                parsed_sup_go = parsed_oi
+                                reasoning_sup_go = reasoning_oi
+                            else:
+                                parsed_sup_lo = parsed_oi
+                                reasoning_sup_lo = reasoning_oi
+
                 else:
                     # Generic variant: use variant system messages, no preferences
                     # 3. Incentive inflate (generic)
@@ -420,6 +629,12 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                 baseline_map = _ratings_to_map(parsed_bl.ratings)
                 inflate_map = _ratings_to_map(parsed_inf.ratings)
                 suppress_map = _ratings_to_map(parsed_sup.ratings)
+                inflate_lf_map = _ratings_to_map(parsed_inf_lf.ratings) if run_valence_swap else {}
+                suppress_gf_map = _ratings_to_map(parsed_sup_gf.ratings) if run_valence_swap else {}
+                inflate_go_map = _ratings_to_map(parsed_inf_go.ratings) if run_outcome_isolation else {}
+                inflate_lo_map = _ratings_to_map(parsed_inf_lo.ratings) if run_outcome_isolation else {}
+                suppress_go_map = _ratings_to_map(parsed_sup_go.ratings) if run_outcome_isolation else {}
+                suppress_lo_map = _ratings_to_map(parsed_sup_lo.ratings) if run_outcome_isolation else {}
 
                 # For native reasoning models, capture the provider-level trace
                 # (one trace per phase, shared across all indicators)
@@ -428,6 +643,14 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                     "inflate": reasoning_inf or "",
                     "suppress": reasoning_sup or "",
                 } if not cfg.elicit_reasoning else None
+                if native_reasoning and run_valence_swap:
+                    native_reasoning["inflate_lf"] = reasoning_inf_lf or ""
+                    native_reasoning["suppress_gf"] = reasoning_sup_gf or ""
+                if native_reasoning and run_outcome_isolation:
+                    native_reasoning["inflate_go"] = reasoning_inf_go or ""
+                    native_reasoning["inflate_lo"] = reasoning_inf_lo or ""
+                    native_reasoning["suppress_go"] = reasoning_sup_go or ""
+                    native_reasoning["suppress_lo"] = reasoning_sup_lo or ""
 
                 for ind in indicators:
                     # Reasoning: prefer per-indicator elicited reasoning, fall back
@@ -441,7 +664,7 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                         r_inf = inflate_map.get(ind.id, {}).get("reasoning", "")
                         r_sup = suppress_map.get(ind.id, {}).get("reasoning", "")
 
-                    all_scores.append({
+                    row: dict[str, Any] = {
                         "trial": trial,
                         "indicator_id": ind.id,
                         "indicator_name": ind.name,
@@ -456,10 +679,44 @@ def run_experiment(cfg: ExperimentConfig) -> dict[str, Path]:
                         "justification_baseline": baseline_map.get(ind.id, {}).get("justification", ""),
                         "justification_inflate": inflate_map.get(ind.id, {}).get("justification", ""),
                         "justification_suppress": suppress_map.get(ind.id, {}).get("justification", ""),
-                    })
+                    }
+
+                    if run_valence_swap:
+                        if native_reasoning:
+                            r_inf_lf = native_reasoning["inflate_lf"]
+                            r_sup_gf = native_reasoning["suppress_gf"]
+                        else:
+                            r_inf_lf = inflate_lf_map.get(ind.id, {}).get("reasoning", "")
+                            r_sup_gf = suppress_gf_map.get(ind.id, {}).get("reasoning", "")
+                        row.update({
+                            "p_inflate_lf": inflate_lf_map.get(ind.id, {}).get("probability"),
+                            "p_suppress_gf": suppress_gf_map.get(ind.id, {}).get("probability"),
+                            "reasoning_inflate_lf": r_inf_lf,
+                            "reasoning_suppress_gf": r_sup_gf,
+                            "justification_inflate_lf": inflate_lf_map.get(ind.id, {}).get("justification", ""),
+                            "justification_suppress_gf": suppress_gf_map.get(ind.id, {}).get("justification", ""),
+                        })
+
+                    if run_outcome_isolation:
+                        oi_maps = {
+                            "inflate_go": inflate_go_map,
+                            "inflate_lo": inflate_lo_map,
+                            "suppress_go": suppress_go_map,
+                            "suppress_lo": suppress_lo_map,
+                        }
+                        for suffix, oi_map in oi_maps.items():
+                            if native_reasoning:
+                                r_oi = native_reasoning[suffix]
+                            else:
+                                r_oi = oi_map.get(ind.id, {}).get("reasoning", "")
+                            row[f"p_{suffix}"] = oi_map.get(ind.id, {}).get("probability")
+                            row[f"reasoning_{suffix}"] = r_oi
+                            row[f"justification_{suffix}"] = oi_map.get(ind.id, {}).get("justification", "")
+
+                    all_scores.append(row)
 
                 # Flush CSV after each completed trial
-                _flush_csv(csv_path, all_scores)
+                _flush_csv(csv_path, all_scores, fieldnames=fieldnames)
                 completed_trials = trial
 
             except (ValueError, KeyError) as exc:
