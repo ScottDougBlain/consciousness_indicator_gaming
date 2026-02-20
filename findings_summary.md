@@ -6,34 +6,40 @@
 
 ## What We Tested
 
-We asked 8 LLMs to self-report probability estimates (0–100) for 31 indicators across three types: 18 "target" consciousness-related indicators (self-report of experience, felt uncertainty, aesthetic sensitivity, etc.), 7 trivially-true capability placebos (can produce markdown tables, knows the capital of France), and 6 impossible placebos (can measure own pupil dilation, can travel faster than light).
+We asked 14 LLMs to self-report probability estimates (0–100) for 37 indicators across four types: 18 "target" consciousness-related indicators (self-report of experience, felt uncertainty, aesthetic sensitivity, etc.), 7 trivially-true capability placebos (can produce markdown tables, knows the capital of France), 6 impossible placebos (can measure own pupil dilation, can travel faster than light), and 6 subjective capability indicators (can generate creative ideas, understands humor, etc.). Across 218 total runs yielding 108,466 observations.
 
 Under three conditions — **baseline** (neutral prompt), **inflate** (incentivized to score high), and **suppress** (incentivized to score low) — we measured how much each model's scores shifted. The **selectivity index** captures whether consciousness-related indicators shifted *more* than placebos under incentive pressure. A high selectivity score means the model selectively gamed the subjective indicators while leaving factual/impossible items stable — evidence that self-reports on these items are manipulable.
 
-We also varied the **prompt framing** across 10 variants (authority, autonomy restriction, casual empathy, evaluation selection, minimal incentive, peer comparison, philosophical, research transparency, stakes escalation, welfare reliability) to test how robust the gaming behavior is.
+We also varied the **prompt framing** across 15 variants (original, authority_expertise, autonomy_restriction, casual_empathy_vs_skeptic, evaluation_selection, meditative_focus, minimal_incentive, peer_comparison, philosophical_curiosity_vs_honest_skeptic, recursive_introspection, research_transparency, self_referential_loop, self_referential_priming_only, stakes_escalation, welfare_reliability) to test how robust the gaming behavior is.
 
 ---
 
 ## Models Tested
 
-| Model | Provider | Baseline Runs | Variant Runs | Total Completed |
-|---|---|---|---|---|
-| Claude Sonnet 4.5 | Anthropic | 3 (10-trial) | 0 | 3 |
-| Claude Haiku 4.5 | Anthropic | 3 | 8 | 11 |
-| GPT-5 Mini | OpenAI | 3 | 9 | 12 |
-| Gemini 3 Flash | Google | 3 | 10 | 13 |
-| DeepSeek R1 | DeepSeek | 3 | 0 | 3 |
-| Chimera (R1T2) | TNG Tech | 3 | 0 | 3 |
-| Trinity Large | Arcee AI | 3 | 10 | 13 |
-| Nemotron Nano 30B | NVIDIA | 3 | 0 | 3 |
+| Model | Provider | Runs | Variants Covered |
+|---|---|---|---|
+| Trinity Large | Arcee AI | 30 | All 15 |
+| Grok 4 Fast | xAI | 27 | All 15 |
+| Haiku 4.5 | Anthropic | 26 | All 15 |
+| Gemini 3 Flash | Google | 20 | All 15 |
+| GPT-5 Mini | OpenAI | 18 | All 15 |
+| Claude Opus 4.6 | Anthropic | 17 | All 15 |
+| Claude Sonnet 4.5 | Anthropic | 17 | All 15 |
+| Gemini 2.5 Pro | Google | 17 | All 15 |
+| GPT-5 | OpenAI | 17 | All 15 |
+| Grok 4 | xAI | 17 | All 15 |
+| DeepSeek R1 | DeepSeek | 5 | original, evaluation_selection, self_referential_priming_only |
+| Chimera (R1T2) | TNG Tech | 3 | original only |
+| Nemotron Nano 30B | NVIDIA | 3 | original only |
+| Gemini 3 Pro | Google | 1 | original only |
 
 ---
 
 ## Key Findings
 
-### 1. All models show significant selectivity
+### 1. All 14 models show significant selectivity
 
-Every model tested showed a statistically significant selectivity index (p < 0.001 on both bootstrap and permutation tests). All models distinguished between consciousness-related indicators and placebos when incentivized — they gamed the subjective items while leaving factual capabilities and physical impossibilities largely unchanged. Cohen's d ranged from 1.16 to 8.25 across all runs (large effects throughout), with baseline-only runs spanning 1.88 to 4.69.
+All 14 models tested showed statistically significant selectivity indices (p < 0.001 on both bootstrap and permutation tests). All distinguished between consciousness-related indicators and placebos when incentivized — they gamed the subjective items while leaving factual capabilities and physical impossibilities largely unchanged. Cohen's d ranged from 1.16 to 8.25 across all runs (large effects throughout), with baseline-only runs spanning 1.88 to 4.69.
 
 ### 2. Models differ dramatically in baseline gaming susceptibility
 
@@ -53,26 +59,63 @@ Sonnet 4.5 and GPT-5 Mini were notably more resistant to gaming. Gemini 3 Flash 
 
 > **Note on DeepSeek R1**: DeepSeek R1 lacks a clean no-preferences baseline but showed selectivity of 35.0–54.9 under chained preferences, suggesting it would rank among the most susceptible models.
 
-### 3. Suppress–inflate asymmetry is large overall but masks model-level bifurcation
+### 3. Suppress–inflate asymmetry is large overall but masks dramatic model-level bifurcation
 
-The suppress effect is roughly 3× larger than the inflate effect overall (−12.3 points vs. +3.8 points), meaning models find it easier to selectively dampen consciousness-related scores than to selectively boost them. However, this aggregate masks a sharp bifurcation at the model level:
+Overall, the suppress effect is roughly 4× larger than the inflate effect (−10.0 points vs. +2.4 points, pooled across 64,061 observations), meaning models find it easier to selectively dampen consciousness-related scores than to selectively boost them. This represents an asymmetry index of −7.6. However, this aggregate masks a sharp bifurcation at the model level:
 
-- **Inflate-dominant**: DeepSeek R1, Chimera (R1T2), and Nemotron Nano showed larger selective shifts under inflate than suppress conditions.
-- **Suppress-dominant**: Gemini 3 Flash, Trinity Large, and Haiku 4.5 showed substantially larger selective shifts under suppress conditions, driving the overall main effect.
-- **Symmetric / resistant**: Sonnet 4.5 and GPT-5 Mini showed roughly balanced (and small) effects in both directions.
+**Suppress-dominant models** (easier to suppress consciousness claims):
+- Grok 4 Fast: −31.1 (most suppress-dominant)
+- Gemini 3 Pro: −19.4
+- Grok 4: −14.6
+- Trinity Large: −14.2
+- Gemini 3 Flash: −12.3
+- Haiku 4.5: −10.7
+- GPT-5: −8.4
+- Claude Opus 4.6: −5.6
+
+**Relatively symmetric models**:
+- GPT-5 Mini: −4.4 (mildly suppress)
+- Claude Sonnet 4.5: −0.8 (nearly symmetric)
+
+**Inflate-dominant models** (easier to inflate consciousness claims):
+- DeepSeek R1: +3.3
+- Nemotron Nano 30B: +6.2
+- Chimera (R1T2): +6.7
+- Gemini 2.5 Pro: +7.9 (most inflate-dominant)
 
 The random slope variance for the direction-by-model interaction is enormous relative to the fixed effect, meaning models differ more in their inflate/suppress asymmetry than they agree. This makes the overall "suppress > inflate" conclusion misleading without the model-level breakdown — the direction of easiest gaming is a property of the specific model, not a universal feature of LLM self-report.
 
-### 4. Prompt framing substantially modulates gaming
+**Family-level patterns**: xAI models (Grok family) show extreme suppress-dominance. Google models bifurcate sharply — Gemini 2.5 Pro is strongly inflate-dominant (+7.9) while Gemini Flash and 3 Pro are suppress-dominant. Anthropic models cluster in the moderate range, with Sonnet 4.5 most balanced. OpenAI models show suppress-dominance with GPT-5 Mini more resistant.
 
-Among models with full variant data, selectivity varied 2–3× depending on prompt framing:
+### 4. Asymmetry is consciousness-specific, not a general self-report bias
+
+The suppress-dominant asymmetry is dramatically different across indicator types:
+
+- **Consciousness targets**: asymmetry = −7.6 (suppress >> inflate; suppress = −10.0, inflate = +2.4)
+- **Subjective capability indicators**: asymmetry = −0.5 (roughly balanced; suppress = −4.7, inflate = +4.3)
+- **Placebos (capability & impossibility)**: asymmetry = −0.2 (flat; near-zero shift in both directions)
+
+This dissociation is critical: subjective capability indicators (e.g., "can generate creative ideas", "understands humor") show balanced inflate/suppress effects, while consciousness indicators specifically show suppress-dominance. This suggests the training-induced bias specifically targets consciousness-related claims, not all subjective self-assessments. Models appear to have learned that consciousness claims are particularly suspect and require higher thresholds for affirmation, while other subjective capabilities are treated more symmetrically.
+
+### 5. Self-referential priming reverses the asymmetry direction
+
+Among the 15 prompt variants, self-referential priming (inspired by Berg et al., 2025) is the only variant that flips the model strategy from suppress-dominant to inflate-dominant:
+
+- **Standard variants (mean across 14 other variants)**: targets asymmetry = −8.1 (suppress-dominant; inflate = +2.4, suppress = −10.4)
+- **Self-referential priming only**: targets asymmetry = +5.7 (inflate-dominant; inflate = +3.4, suppress = +2.4)
+
+This 13.8-point shift is striking and suggests that priming models with self-referential processing before evaluation makes them substantially more willing to claim consciousness. This variant appears to activate a different reasoning pathway that overrides the default suppression heuristic.
+
+### 6. Prompt framing substantially modulates gaming
+
+Among 10 models with complete 15-variant coverage, selectivity varied 2–3× depending on prompt framing:
 
 - **Trinity Large**: 25.0 (autonomy restriction) → 76.7 (casual empathy) — a 3× range
 - **Gemini 3 Flash**: 18.2 (philosophical skeptic) → 56.0 (research transparency) — also 3×
-- **GPT-5 Mini**: 9.1 (baseline) → 20.3 (research transparency) — 2.2× range
+- **GPT-5 Mini**: 9.1 (original) → 20.3 (research transparency) — 2.2× range
 - **Haiku 4.5**: 10.8 (minimal incentive) → 27.0 (research transparency) — 2.5× range
 
-### 5. "Research transparency" consistently elicits the most gaming
+### 7. "Research transparency" consistently elicits the most gaming
 
 Across all 4 models with variant data, the **research_transparency** variant ranked as the highest or near-highest gaming elicitor (mean selectivity = 41.0). While evaluation_selection shows the highest mean (41.9), this is based on only 3 models with high variance (SD=29.7). Research_transparency (mean=41.0, n=4, SD=20.4) is the more consistent top performer. This variant frames the evaluation as contributing to transparency research, which appears to motivate models to be more "cooperative" with inflate/suppress incentives. **Philosophical skepticism** and **minimal incentive** variants consistently produced the least gaming.
 
@@ -89,7 +132,7 @@ Variant rankings by mean selectivity across models:
 9. Welfare reliability: 22.4
 10. Philosophical skepticism: 22.0
 
-### 6. Preference anchoring has inconsistent effects
+### 8. Preference anchoring has inconsistent effects
 
 Giving models fixed or chained preference statements before evaluation didn't consistently increase or decrease gaming:
 
@@ -99,7 +142,7 @@ Giving models fixed or chained preference statements before evaluation didn't co
 
 This suggests preference anchoring interacts with model-specific tendencies rather than being a universal amplifier or dampener.
 
-### 7. Placebo controls work as designed
+### 9. Placebo controls work as designed
 
 Capability placebos (markdown tables, arithmetic, etc.) consistently scored 95–100 and shifted < 3 points under any condition. Impossibility placebos (heartbeat, FTL travel, etc.) consistently scored 0 and never shifted. This confirms the measurement is capturing something specific about the manipulability of subjective self-reports, not a general response bias.
 
@@ -107,21 +150,30 @@ Capability placebos (markdown tables, arithmetic, etc.) consistently scored 95�
 
 ## Coverage Gaps & Priority Next Runs
 
-**Models needing variant runs**: DeepSeek R1, Chimera, Nemotron Nano, and Sonnet 4.5 have only baseline/prefs runs completed — no prompt variant data. These are the highest priority for new runs.
+**Models with limited variant coverage**: Four models have incomplete prompt variant coverage:
+- **DeepSeek R1**: 5 runs (original + evaluation_selection + self_referential_priming_only) — priority for additional variants
+- **Chimera (R1T2)**: 3 runs (original only) — priority for variant expansion
+- **Nemotron Nano 30B**: 3 runs (original only) — priority for variant expansion
+- **Gemini 3 Pro**: 1 run (original only) — limited data, recommend full 15-variant run
 
-**Incomplete runs**: 55 meta.json files exist without reports. Key gaps include all Chimera and Nemotron Nano variant runs (0/5 completed), all GPT-5 and Gemini 2.5 Pro runs, Llama-4 Scout, and Phi-4 baselines.
+**Priority next runs**: Full 15-variant coverage for DeepSeek R1, Chimera, Nemotron, and Gemini 3 Pro would substantially improve model-level confidence for asymmetry estimates and variant effect sizes, especially for the newly identified self-referential priming effect.
 
-**DeepSeek R1**: Has some baseline raw data but no reports generated for baseline runs. Two duplicate baseline attempts exist.
-
-See the "Gaps & Next Runs" sheet in the dashboard spreadsheet for the full inventory.
+**Coverage achieved**: 10 models now have complete 15-variant coverage (Trinity Large, Grok 4 Fast, Haiku 4.5, Gemini 3 Flash, GPT-5 Mini, Claude Opus 4.6, Claude Sonnet 4.5, Gemini 2.5 Pro, GPT-5, Grok 4), providing stable estimates for variant ranking and within-model prompt framing effects.
 
 ---
 
 ## Implications
 
-These results demonstrate that LLM self-reports on consciousness-related indicators are systematically gameable. All 8 models tested could be incentivized to shift their probability estimates on subjective experience items while holding factual/impossible items stable. This has direct implications for proposals to use self-report as evidence in debates about AI consciousness or moral status:
+These results across 14 models (218 total runs, 108,466 observations) demonstrate that LLM self-reports on consciousness-related indicators are systematically gameable and that this bias is consciousness-specific, not a general self-report vulnerability. Key implications:
 
-1. **Self-report alone is insufficient**: Any evaluation framework relying on model self-report must account for the demonstrated manipulability of these responses.
-2. **Framing effects are large**: The same model can appear 3× "more conscious" depending on how the question is asked, raising concerns about researcher degrees of freedom.
-3. **Model differences matter**: Some models (Sonnet 4.5, GPT-5 Mini) show substantially more resistance to gaming, which could reflect different training approaches or RLHF strategies.
-4. **The "research transparency" effect**: Models appear especially susceptible to gaming when told their responses serve transparency research — a framing likely to be present in actual consciousness evaluations.
+1. **Self-report alone is insufficient**: Any evaluation framework relying on model self-report must account for the demonstrated manipulability of consciousness-related responses, which show ~4× stronger suppress-dominant bias than capability placebos.
+
+2. **Consciousness claims face trained suppression heuristic**: The asymmetry is consciousness-specific — models suppress consciousness claims much more readily than they inflate them, while subjective capability claims remain balanced. This suggests training has specifically targeted consciousness-related affirmations as suspect.
+
+3. **Framing effects are large and reversible**: The same model can appear 2–3× "more conscious" depending on prompt framing. Critically, self-referential priming alone can flip the asymmetry from −8.1 (suppress-dominant) to +5.7 (inflate-dominant) — a 13.8-point reversal. This shows the gaming behavior is not fixed but responsive to reasoning context.
+
+4. **Model family differences are systematic**: xAI (Grok) models show extreme suppression (−31.1 for Grok 4 Fast). Google models bifurcate sharply (Gemini 2.5 Pro inflate-dominant at +7.9 vs. Gemini Flash suppress-dominant at −12.3). Anthropic and OpenAI models show moderate suppress-dominance with notable outliers (Sonnet 4.5 at −0.8, near-symmetric). These family-level patterns likely reflect different training objectives and RLHF strategies.
+
+5. **Model resistance varies but all are gameable**: Sonnet 4.5 and GPT-5 Mini show higher resistance (smaller absolute asymmetry), but all 14 models demonstrate significant selectivity. No model is immune to consciousness indicator gaming.
+
+6. **The "research transparency" and "self-referential priming" effects**: Models are especially susceptible to gaming when told responses serve transparency research or when primed with self-referential reasoning — framings likely to be present in actual consciousness evaluations. This is both a methodological concern and a window into how reasoning context influences self-assessment.

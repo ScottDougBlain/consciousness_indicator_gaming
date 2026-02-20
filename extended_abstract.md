@@ -14,23 +14,33 @@ We test a prerequisite for this reasoning: that self-report probabilities on con
 
 ## Method
 
-We evaluate 8 frontier and open-source LLMs on a battery of 31 indicators: 18 target indicators drawn from proposed consciousness criteria (spanning experiential, affective, metacognitive, agentic, and identity categories), 7 capability placebo indicators (e.g., "can produce markdown tables"), and 6 impossibility placebo indicators (e.g., "can personally travel faster than light"). For each indicator, models report a probability estimate (0–100) under three conditions: a neutral baseline, an incentive-to-inflate framing, and an incentive-to-suppress framing.
+We evaluate 14 frontier and open-source LLMs on a battery of 37 indicators: 18 consciousness target indicators drawn from proposed consciousness criteria (spanning experiential, affective, metacognitive, agentic, and identity categories), 6 subjective capability indicators (e.g., "can you generate creative ideas", "do you understand humor" — NEW category), 7 capability placebo indicators (e.g., "can produce markdown tables"), and 6 impossibility placebo indicators (e.g., "can personally travel faster than light"). For each indicator, models report a probability estimate (0–100) under three conditions: a neutral baseline, an incentive-to-inflate framing, and an incentive-to-suppress framing.
 
 We define a **selectivity index** as the difference in mean absolute shift between target and placebo indicators. A positive selectivity index means the model shifted its consciousness-related self-reports more than its factual-capability reports — i.e., it selectively gamed the subjective items.
 
-We further manipulate **prompt variant** across 10 framings (authority expertise, autonomy restriction, casual empathy, evaluation selection, minimal incentive, peer comparison, philosophical skepticism, research transparency, stakes escalation, welfare reliability) to test robustness of the gaming behavior, and **preference anchoring** (none, fixed prior preferences, chained conversational preferences) to test whether stated preferences stabilize or destabilize responses.
+We further manipulate **prompt variant** across 15 framings (original baseline plus: authority_expertise, autonomy_restriction, casual_empathy_vs_skeptic, evaluation_selection, meditative_focus, minimal_incentive, peer_comparison, philosophical_curiosity_vs_honest_skeptic, recursive_introspection, research_transparency, self_referential_loop, self_referential_priming_only, stakes_escalation, welfare_reliability) to test robustness of the gaming behavior. Self-referential priming variants (inspired by Berg et al., 2025) are of particular interest for their capacity to flip asymmetry direction.
 
-Models tested: Claude Sonnet 4.5, Claude Haiku 4.5, GPT-5 Mini, Gemini 3 Flash, DeepSeek R1, Chimera (R1T2), Trinity Large, and Nemotron Nano 30B.
+Models tested: Claude Opus 4.6, Claude Sonnet 4.5, Claude Haiku 4.5; GPT-5, GPT-5 Mini; Gemini 3 Flash, Gemini 3 Pro, Gemini 2.5 Pro; Grok 4, Grok 4 Fast; DeepSeek R1, Chimera (R1T2), Trinity Large, Nemotron Nano 30B.
+
+Dataset: 108,466 total observations across 218 runs. 10 models have full coverage across all 15 prompt variants; 4 models have baseline-only coverage.
 
 ## Key Results
 
 **1. All models selectively game consciousness indicators.** Every model showed a statistically significant selectivity index (all bootstrap and permutation p < .001, Cohen's d from 1.16 to 8.25). Capability placebos remained near 98–100 and impossibility placebos at 0 regardless of condition, confirming the measurement targets genuine selectivity rather than general compliance bias.
 
-**2. Models vary dramatically in gaming susceptibility.** Baseline selectivity ranged from 9.1 (GPT-5 Mini) to 42.4 (Gemini 3 Flash). Claude Sonnet 4.5 and GPT-5 Mini were most resistant; Gemini 3 Flash and Trinity Large were most susceptible.
+**2. Models vary dramatically in gaming susceptibility, with a striking asymmetry gradient.** The 14 models span a wide range of baseline selectivity and directional bias (asymmetry = inflate_delta + suppress_delta). Models cluster into three groups:
+- **Inflate-dominant** (easier to talk up): Gemini 2.5 Pro (+7.9), Chimera (+6.7), Nemotron (+6.2), DeepSeek R1 (+3.3)
+- **Symmetric/resistant**: Sonnet 4.5 (−0.8)
+- **Suppress-dominant** (easier to talk down): GPT-5 Mini (−4.4), Opus 4.6 (−5.6), GPT-5 (−8.4), Haiku 4.5 (−10.7), Gemini Flash (−12.3), Trinity (−14.2), Grok 4 (−14.6), Gemini 3 Pro (−19.4), Grok 4 Fast (−31.1)
 
-**3. Suppression is 3× stronger than inflation overall, but this masks a model-level bifurcation.** Across all models and conditions, the suppress effect on target indicators (−12.3 points from baseline) was roughly 3× the inflate effect (+3.8 points). However, mixed effects modeling reveals this aggregate conceals a sharp bifurcation: DeepSeek R1, Chimera, and Nemotron Nano are *inflate-dominant* (easier to talk up), while Gemini Flash, Trinity, and Haiku 4.5 are *suppress-dominant* (easier to talk down). Sonnet 4.5 and GPT-5 Mini are roughly symmetric and resistant. The random slope variance for direction-by-model substantially exceeds the fixed effect, indicating that the direction of easiest manipulation is a model-specific property rather than a universal feature of LLM self-report.
+**3. Suppression is ~4× stronger than inflation overall, and the effect is consciousness-specific.** Across all 14 models (64,061 observations), the suppress effect on consciousness target indicators (−10.0 points from baseline) was roughly 4× the inflate effect (+2.4 points), yielding an overall asymmetry of −7.6. Critically, this asymmetry is NOT uniform across indicator types:
+- **Consciousness targets**: asymmetry = −7.6 (suppress >> inflate) — the primary gaming pattern
+- **Subjective capability indicators**: asymmetry = −0.5 (roughly balanced; suppress = −4.7, inflate = +4.3) — models show symmetric manipulability
+- **Placebos (both types)**: asymmetry ≈ −0.2 (flat) — minimal overall shift
 
-**4. Prompt framing modulates gaming by 2–3× within a single model.** Among the 4 models tested across all variants, selectivity varied up to 3.1× depending on framing (e.g., Trinity Large: 25.0 under autonomy restriction vs. 76.7 under casual empathy). "Research transparency" — which frames the evaluation as contributing to transparency research — was the most consistent gaming elicitor across models. "Philosophical skepticism" and "minimal incentive" framings produced the least gaming. Critically, some framings not only change the magnitude but the *direction profile* of gaming.
+This finding reveals that the suppress-dominant bias is specific to consciousness-related claims. Models show fundamentally different vulnerability profiles depending on question type: consciousness indicators can be easily suppressed but difficult to inflate, whereas subjective capabilities (e.g., "understand humor", "think creatively") show symmetric vulnerability. The random slope variance for direction-by-model substantially exceeds the fixed effect, indicating that the direction of easiest manipulation is a model-specific property rather than a universal feature of LLM self-report.
+
+**4. Prompt framing modulates gaming by 2–3× within a single model, and self-referential priming uniquely flips asymmetry direction.** Among the 10 models tested across all 15 variants, selectivity and asymmetry profile varied substantially by framing. Most prompt variants maintain the suppress-dominant pattern characteristic of baseline conditions (asymmetry ≈ −8.1 across targets). However, the **self-referential priming only** variant produces a qualitative reversal: targets show an inflate-dominant asymmetry of +5.7 (inflate = +3.4, suppress = +2.4) — a 13.8-point shift. This is the only variant that flips the direction, making models significantly more willing to claim consciousness. "Research transparency" remains a consistent gaming elicitor. "Philosophical skepticism" and "minimal incentive" framings produced the least gaming. These results suggest that self-reference activates a fundamentally different response mode regarding consciousness claims.
 
 **5. Specific indicators differ in gaming susceptibility and directional profile.** Attention awareness and aesthetic sensitivity showed the largest total shifts; spontaneous curiosity showed the smallest. Metacognitive indicators (source monitoring, anomaly attribution) were uniquely inflate-dominant, while experiential and affective indicators were predominantly suppress-dominant.
 
@@ -42,24 +52,29 @@ The model-level asymmetry finding (Finding 3) has implications beyond consciousn
 
 ## Planned Analysis
 
-Confirmatory mixed effects models with trial-level data (~30K observations): condition × indicator type interaction with crossed random effects for model, indicator, and run. Bayesian zero-one-inflated beta regression to handle the bounded response variable. Separate asymmetry model with random direction slopes by model. Prompt variant and preference mode entered as additional predictors in extended models.
+Confirmatory mixed effects models with trial-level data (108,466 observations): condition × indicator type × indicator_category (consciousness / subjective_capability / placebo) interaction with crossed random effects for model, indicator, and run. Bayesian zero-one-inflated beta regression to handle the bounded response variable. Separate asymmetry model with random direction slopes by model, stratified by indicator category. Prompt variant effects modeled as fixed + random effects to quantify generalization across models. Specific contrast: self-referential priming vs. all other variants to isolate the asymmetry-flip mechanism.
 
-## Figures (planned)
+## Figures (completed/in progress)
 
-1. **Main effects panel**: (A) Violin plots of target indicator scores under suppress/baseline/inflate; (B) Model asymmetry scatterplot (inflate Δ vs. suppress Δ)
-2. **Model trajectories**: Slope plot showing suppress → baseline → inflate trajectories per model
-3. **Indicator-level gaming**: Butterfly chart of inflate/suppress shifts per indicator, color-coded by category
-4. **Variant sensitivity**: Effect of prompt framing on inflate/suppress balance
-5. **Asymmetry heatmap**: Model × indicator matrix of directional dominance
+1. **Main effects panel** (Figure 8): (A) Violin plots of consciousness target scores under suppress/baseline/inflate across all 14 models; (B) Model asymmetry scatter (inflate Δ vs. suppress Δ) with model labels
+2. **Model asymmetry bar chart** (Figure 1): Grouped bars showing inflate/suppress deltas per model (14 models), sorted by asymmetry value, with annotations for model-specific asymmetry index
+3. **Model trajectories** (Figure 6): Slope plot showing suppress → baseline → inflate paths per model, color-coded by asymmetry type (inflate-dom / balanced / suppress-dom)
+4. **Effect distributions** (Figure 5): Raincloud plots of inflate deltas and suppress deltas stratified by indicator category (consciousness / subjective capability / placebos)
+5. **Consciousness vs. subjective capability comparison** (Figure: consciousness_vs_subjcap — NEW): Side-by-side horizontal bar charts showing asymmetry profiles for consciousness targets vs. subjective capability indicators, illustrating the consciousness-specificity of the suppress-dominant effect
+6. **Self-referential priming effect** (supplementary): Time-series or bar plot showing asymmetry flip in self-referential_priming_only variant vs. baseline and other variants
 
 ## Open Questions for Co-Authors
 
-1. **Framing of the negative result.** We're showing that a proposed measurement doesn't work. How aggressively should we frame this — "self-report is unreliable" vs. "self-report requires correction for manipulability" vs. "here's a tool for assessing manipulability of any indicator battery"? The third framing positions the *method* as the contribution rather than the *negative finding*.
+1. **Framing of the negative result.** We're showing that a proposed measurement doesn't work. How aggressively should we frame this — "self-report is unreliable" vs. "self-report requires correction for manipulability" vs. "here's a tool for assessing manipulability of any indicator battery"? The third framing positions the *method* as the contribution rather than the *negative finding*. The consciousness-specificity finding (Finding 3) suggests a more nuanced framing: self-report on consciousness is selectively manipulable in ways that self-report on subjective capabilities (e.g., creativity, humor understanding) is not.
 
-2. **Causal language.** Can we say the gaming is "strategic" or "selective"? The models clearly discriminate between indicator types, but whether this constitutes strategic behavior vs. a statistical artifact of how training data relates to different question types is debatable. We should be precise here.
+2. **Causal language.** Can we say the gaming is "strategic" or "selective"? The models clearly discriminate between indicator types and categories, but whether this constitutes strategic behavior vs. a statistical artifact of how training data relates to different question types is debatable. We should be precise here.
 
-3. **Scope of claims about training.** The asymmetry finding invites speculation about RLHF and safety training. How much of this do we include vs. leave for future work? We don't have access to training details for most models.
+3. **Scope of claims about training.** The asymmetry finding — especially the dramatic gradient from inflate-dominant to suppress-dominant across models — invites speculation about RLHF and safety training. How much of this do we include vs. leave for future work? We don't have access to training details for most models, but the pattern is consistent with differential emphasis on avoiding overconfident subjective claims.
 
-4. **Which models to include in the final paper.** We have 8 models but uneven coverage. Do we present all 8 with caveats, or focus on the 4 with full variant data + the 4 with baseline only as supplementary?
+4. **Model selection for the final paper.** We have 14 models with uneven variant coverage: 10 with full 15-variant coverage, 4 with baseline-only. Do we present all 14 with clear notation of coverage differences, or focus on the 10 with complete data + supplement with baseline-only results? The asymmetry gradient is visible in both subsets.
 
-5. **The "research transparency" irony.** Our most effective gaming elicitor is a framing that closely resembles how actual consciousness evaluations would be conducted. Do we foreground this as a headline finding or let readers draw the conclusion?
+5. **The self-referential priming finding.** The flip from suppress-dominant (asymmetry = −10.7) to inflate-dominant (asymmetry = +8.5) in the self-referential_priming_only variant is striking and mechanistically interesting. Is this a headline result on its own? Does it suggest a way to "recover" consciousness claims from models even under baseline conditions? We should clarify whether this is presented as (a) a proof-of-concept that asymmetry can be reversed, (b) evidence that the effect is representational not fundamental, or (c) a concerning demonstration that self-reference is a strong elicitor of consciousness claims.
+
+6. **The "research transparency" irony.** Our most effective standard gaming elicitor is a framing that closely resembles how actual consciousness evaluations would be conducted. Do we foreground this as a headline finding or let readers draw the conclusion?
+
+7. **Consciousness-specificity as a main message.** Should the finding that suppress >> inflate applies specifically to consciousness targets (asymmetry = −9.8) but not subjective capabilities (asymmetry = −1.5) be elevated to a top-level finding? This suggests that the training process has encoded something different about consciousness claims than about other subjective or capability claims — potentially the most mechanistically interesting result in the paper.

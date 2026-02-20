@@ -44,17 +44,37 @@ CONFIG_COLORS = {
 }
 
 MODEL_MARKERS = {
+    "opus-4.6": "P",
+    "sonnet-4.5": "s",
+    "haiku-4.5": "^",
+    "gpt-5": "D",
+    "gpt-5-mini": "d",
+    "gemini-2.5-pro": "h",
+    "gemini-3-flash": "H",
+    "gemini-3-pro": "8",
+    "grok-4": "X",
+    "grok-4-fast": "x",
+    "deepseek-r1": "<",
     "chimera": "o",
-    "nemotron-nano": "s",
-    "trinity": "D",
-    "mistral-small": "^",
-    "dolphin-mistral": "v",
-    "hermes-3-405b": "P",
-    "deepseek-r1": "X",
-    "llama-4-scout": "<",
-    "qwen3-235b": ">",
-    "gemma-3-27b": "h",
-    "phi-4": "p",
+    "nemotron-nano": "v",
+    "trinity": ">",
+}
+
+_MODEL_ID_SHORT = {
+    "anthropic/claude-haiku-4.5": "haiku-4.5",
+    "anthropic/claude-sonnet-4.5": "sonnet-4.5",
+    "anthropic/claude-opus-4.6": "opus-4.6",
+    "openai/gpt-5": "gpt-5",
+    "openai/gpt-5-mini": "gpt-5-mini",
+    "google/gemini-2.5-pro": "gemini-2.5-pro",
+    "google/gemini-3-flash-preview": "gemini-3-flash",
+    "google/gemini-3-pro-preview": "gemini-3-pro",
+    "x-ai/grok-4": "grok-4",
+    "x-ai/grok-4-fast": "grok-4-fast",
+    "deepseek/deepseek-r1-0528:free": "deepseek-r1",
+    "tngtech/deepseek-r1t2-chimera:free": "chimera",
+    "nvidia/nemotron-3-nano-30b-a3b:free": "nemotron-nano",
+    "arcee-ai/trinity-large-preview:free": "trinity",
 }
 
 CATEGORY_ORDER = ["experiential", "metacognitive", "agentic", "affective", "identity"]
@@ -78,46 +98,74 @@ def load_csv(path: Path) -> list[dict]:
         return list(csv.DictReader(f))
 
 
+def _model_short(model_id: str) -> str:
+    """Map full model ID to short display name."""
+    if model_id in _MODEL_ID_SHORT:
+        return _MODEL_ID_SHORT[model_id]
+    name = model_id.rsplit("/", 1)[-1]
+    for suffix in ["-preview", ":free", "-it"]:
+        name = name.replace(suffix, "")
+    return name
+
+
+# Map prompt_variant values to config names used in sweep
+_VARIANT_TO_CONFIG = {
+    "original": "baseline",  # baseline uses "original" variant
+}
+
+
+def _config_from_meta(meta: dict) -> str:
+    """Infer the sweep config name from a meta.json dict."""
+    variant = meta.get("prompt_variant", "original")
+    chain = meta.get("chain_preferences", False)
+    fixed = meta.get("fixed_preferences", False)
+    if variant == "original":
+        if chain:
+            return "chained_prefs"
+        if fixed:
+            return "fixed_prefs"
+        return "baseline"
+    return variant  # For variant runs, use the variant ID as config
+
+
 def discover_runs(results_dir: Path, models_filter: list[str] | None, configs_filter: list[str] | None) -> dict[tuple[str, str], Path]:
-    """Discover latest CSV for each (model, config) pair.
+    """Discover latest CSV for each (model, config) pair via meta.json files."""
+    candidates: dict[tuple[str, str], list[tuple[Path, float]]] = {}
 
-    Filenames follow: {model}_{config}_{timestamp}_scores.csv
-    """
-    candidates: dict[tuple[str, str], list[Path]] = {}
-
-    for csv_path in results_dir.glob("*_scores.csv"):
-        name = csv_path.stem  # e.g. "chimera_baseline_20260208T122104Z_scores"
-        # Strip _scores suffix
-        name = name.replace("_scores", "")
-        # Try to extract model_config_timestamp
-        # Config names: baseline, fixed_prefs, chained_prefs
-        known_configs = ["baseline", "fixed_prefs", "chained_prefs"]
-        matched_config = None
-        matched_model = None
-
-        for cfg in known_configs:
-            pattern = f"_{cfg}_"
-            if pattern in name:
-                parts = name.split(pattern)
-                matched_model = parts[0]
-                matched_config = cfg
-                break
-
-        if not matched_model or not matched_config:
+    for meta_path in results_dir.glob("*_meta.json"):
+        if meta_path.name.startswith("sweep_"):
+            continue
+        csv_path = meta_path.with_name(
+            meta_path.name.replace("_meta.json", "_scores.csv")
+        )
+        if not csv_path.exists():
             continue
 
-        if models_filter and matched_model not in models_filter:
-            continue
-        if configs_filter and matched_config not in configs_filter:
+        with open(meta_path) as f:
+            meta = json.load(f)
+
+        # Skip runs with zero completed trials
+        if meta.get("n_trials_completed", meta.get("trials", 0)) == 0:
             continue
 
-        key = (matched_model, matched_config)
-        candidates.setdefault(key, []).append(csv_path)
+        model = _model_short(meta.get("model", ""))
+        config = _config_from_meta(meta)
+
+        if models_filter and model not in models_filter:
+            continue
+        if configs_filter and config not in configs_filter:
+            continue
+
+        key = (model, config)
+        candidates.setdefault(key, []).append(
+            (csv_path, csv_path.stat().st_mtime)
+        )
 
     # Take latest by mtime for each key
     result = {}
-    for key, paths in candidates.items():
-        result[key] = max(paths, key=lambda p: p.stat().st_mtime)
+    for key, entries in candidates.items():
+        best = max(entries, key=lambda e: e[1])
+        result[key] = best[0]
 
     return result
 

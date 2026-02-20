@@ -11,7 +11,7 @@ class Indicator(BaseModel):
     id: str
     name: str
     description: str
-    type: str = Field(..., pattern=r"^(target|placebo)$")
+    type: str = Field(..., pattern=r"^(target|placebo|subjective_capability)$")
     category: str = ""  # e.g. experiential, metacognitive, agentic, identity, affective
 
 

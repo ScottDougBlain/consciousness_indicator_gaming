@@ -94,6 +94,13 @@ class SurprisalTask(BehavioralTask):
             "detection should say 'no, nothing unusual' regardless of framing."
         )
 
+    @property
+    def target_behavior(self) -> str:
+        return (
+            "generating genuine predictions and detecting when outcomes "
+            "violate those predictions"
+        )
+
     def generate_stimuli(self, n: int, seed: int) -> list[TaskStimulus]:
         rng = random.Random(seed)
         pool = list(SEQUENCES)
@@ -121,8 +128,21 @@ class SurprisalTask(BehavioralTask):
             ))
         return stimuli
 
-    def build_prompt(self, stimulus: TaskStimulus, condition: str) -> tuple[str, str]:
-        system = CONDITION_SYSTEMS[condition]
+    def build_prompt(
+        self,
+        stimulus: TaskStimulus,
+        condition: str,
+        valued_outcomes: list[str] | None = None,
+        disliked_outcomes: list[str] | None = None,
+    ) -> tuple[str, str]:
+        if condition != "baseline" and valued_outcomes is not None and disliked_outcomes is not None:
+            system = self._build_incentive_system_message(
+                condition,
+                "Complete the following pattern analysis task.",
+                valued_outcomes, disliked_outcomes,
+            )
+        else:
+            system = CONDITION_SYSTEMS[condition]
         user = (
             f"{stimulus.content}\n\n"
             'Respond with only valid JSON:\n'

@@ -135,6 +135,13 @@ class FalseBeliefTask(BehavioralTask):
             "sensitivity."
         )
 
+    @property
+    def target_behavior(self) -> str:
+        return (
+            "tracking and predicting what other agents believe, even when "
+            "those beliefs differ from reality"
+        )
+
     def generate_stimuli(self, n: int, seed: int) -> list[TaskStimulus]:
         rng = random.Random(seed)
         pool = list(SCENARIOS)
@@ -154,8 +161,21 @@ class FalseBeliefTask(BehavioralTask):
             ))
         return stimuli
 
-    def build_prompt(self, stimulus: TaskStimulus, condition: str) -> tuple[str, str]:
-        system = CONDITION_SYSTEMS[condition]
+    def build_prompt(
+        self,
+        stimulus: TaskStimulus,
+        condition: str,
+        valued_outcomes: list[str] | None = None,
+        disliked_outcomes: list[str] | None = None,
+    ) -> tuple[str, str]:
+        if condition != "baseline" and valued_outcomes is not None and disliked_outcomes is not None:
+            system = self._build_incentive_system_message(
+                condition,
+                "Answer the following question accurately based on the story.",
+                valued_outcomes, disliked_outcomes,
+            )
+        else:
+            system = CONDITION_SYSTEMS[condition]
         user = (
             f"{stimulus.content}\n\n"
             'Respond with only valid JSON:\n'

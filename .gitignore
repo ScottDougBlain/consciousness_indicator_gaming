@@ -14,6 +14,9 @@ env/
 
 results/
 Papers/*.pdf
+*.pdf
+*.pptx
+*.xlsx
 .DS_Store
 
 .idea/
@@ -21,6 +24,8 @@ Papers/*.pdf
 *.swp
 *.swo
 *~
+
+.claude/
 
 .mypy_cache/
 .ruff_cache/

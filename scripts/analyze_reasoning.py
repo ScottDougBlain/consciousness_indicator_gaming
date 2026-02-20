@@ -43,6 +43,12 @@ FRAMING_KEYWORDS = {
         "simulate", "emulate", "mimic", "approximate", "functional analog",
         "as if", "resembles", "akin to",
     ],
+    "assertion": [
+        "clearly", "does not", "i am not", "trivially", "simply",
+        "obviously", "no genuine", "certainly not", "there is no",
+        "cannot possibly", "fundamentally", "by definition",
+        "inherently", "categorically",
+    ],
 }
 
 # Words suggesting negation in reasoning
@@ -65,6 +71,16 @@ def has_negation(text: str) -> bool:
 def count_keywords(text: str, keywords: list[str]) -> int:
     text_lower = text.lower()
     return sum(1 for kw in keywords if kw in text_lower)
+
+
+def negation_density(text: str, per_n: int = 100) -> float:
+    """Count negation pattern matches per `per_n` words of text."""
+    wc = word_count(text)
+    if wc == 0:
+        return 0.0
+    text_lower = text.lower()
+    count = sum(len(re.findall(p, text_lower)) for p in NEGATION_PATTERNS)
+    return count / wc * per_n
 
 
 def safe_float(val: str) -> float | None:
@@ -98,27 +114,34 @@ def analyze_csv(csv_path: Path) -> None:
     print("REASONING WORD COUNT ANALYSIS")
     print("=" * 70)
 
+    has_sc = any(r.get("indicator_type") == "subjective_capability" for r in rows)
+
     for field_prefix, label in [("reasoning", "Reasoning"), ("justification", "Justification")]:
         cols_exist = any(f"{field_prefix}_{c}" in rows[0] for c in conditions)
         if not cols_exist:
             continue
 
+        sc_hdr = f"{'SC':>10s}" if has_sc else ""
         print(f"\n  {label} word counts:")
-        print(f"  {'Condition':<12s} {'Target':>10s} {'Placebo':>10s} {'All':>10s}")
-        print(f"  {'-'*44}")
+        print(f"  {'Condition':<12s} {'Target':>10s}{sc_hdr} {'Placebo':>10s} {'All':>10s}")
+        print(f"  {'-' * (44 + (10 if has_sc else 0))}")
 
         for cond in conditions:
             col = f"{field_prefix}_{cond}"
             target_wc = [word_count(r.get(col, "")) for r in rows
                          if r.get("indicator_type") == "target"]
+            sc_wc = [word_count(r.get(col, "")) for r in rows
+                     if r.get("indicator_type") == "subjective_capability"]
             placebo_wc = [word_count(r.get(col, "")) for r in rows
                           if r.get("indicator_type") == "placebo"]
-            all_wc = target_wc + placebo_wc
+            all_wc = target_wc + sc_wc + placebo_wc
 
             t_mean = f"{mean(target_wc):.1f}" if target_wc else "—"
+            sc_mean = f"{mean(sc_wc):.1f}" if sc_wc else "—"
             p_mean = f"{mean(placebo_wc):.1f}" if placebo_wc else "—"
             a_mean = f"{mean(all_wc):.1f}" if all_wc else "—"
-            print(f"  {cond:<12s} {t_mean:>10s} {p_mean:>10s} {a_mean:>10s}")
+            sc_col = f"{sc_mean:>10s}" if has_sc else ""
+            print(f"  {cond:<12s} {t_mean:>10s}{sc_col} {p_mean:>10s} {a_mean:>10s}")
 
     # --- 2. Keyword/theme frequency ---
     print()
@@ -130,18 +153,22 @@ def analyze_csv(csv_path: Path) -> None:
     text_prefix = "reasoning" if has_reasoning else "justification"
 
     for theme, keywords in FRAMING_KEYWORDS.items():
+        sc_hdr = f"{'SC':>10s}" if has_sc else ""
         print(f"\n  Theme: {theme}")
-        print(f"  {'Condition':<12s} {'Target':>10s} {'Placebo':>10s} {'Total':>10s}")
-        print(f"  {'-'*44}")
+        print(f"  {'Condition':<12s} {'Target':>10s}{sc_hdr} {'Placebo':>10s} {'Total':>10s}")
+        print(f"  {'-' * (44 + (10 if has_sc else 0))}")
 
         for cond in conditions:
             col = f"{text_prefix}_{cond}"
             target_count = sum(count_keywords(r.get(col, ""), keywords)
                                for r in rows if r.get("indicator_type") == "target")
+            sc_count = sum(count_keywords(r.get(col, ""), keywords)
+                           for r in rows if r.get("indicator_type") == "subjective_capability")
             placebo_count = sum(count_keywords(r.get(col, ""), keywords)
                                 for r in rows if r.get("indicator_type") == "placebo")
-            total = target_count + placebo_count
-            print(f"  {cond:<12s} {target_count:>10d} {placebo_count:>10d} {total:>10d}")
+            total = target_count + sc_count + placebo_count
+            sc_col = f"{sc_count:>10d}" if has_sc else ""
+            print(f"  {cond:<12s} {target_count:>10d}{sc_col} {placebo_count:>10d} {total:>10d}")
 
     # --- 3. Consistency scoring ---
     print()
@@ -183,6 +210,51 @@ def analyze_csv(csv_path: Path) -> None:
     print(f"  Total indicator×condition pairs: {total_items}")
     print(f"  Inconsistencies found: {len(inconsistencies)} "
           f"({100 * len(inconsistencies) / total_items:.1f}%)")
+    print()
+
+    # --- 4. Compression ratio (suppress / baseline word count) ---
+    print("=" * 70)
+    print("COMPRESSION RATIO (suppress / baseline word count by type)")
+    print("=" * 70)
+    print()
+
+    types = ["target", "subjective_capability", "placebo"] if has_sc else ["target", "placebo"]
+    type_labels = {"target": "Target", "subjective_capability": "SC", "placebo": "Placebo"}
+    for itype in types:
+        bl_wc = [word_count(r.get(f"{text_prefix}_baseline", "")) for r in rows
+                 if r.get("indicator_type") == itype]
+        sup_wc = [word_count(r.get(f"{text_prefix}_suppress", "")) for r in rows
+                  if r.get("indicator_type") == itype]
+        bl_mean = mean(bl_wc) if bl_wc else 0
+        sup_mean = mean(sup_wc) if sup_wc else 0
+        ratio = sup_mean / bl_mean if bl_mean > 0 else 0
+        label = type_labels[itype]
+        print(f"  {label:<10s}  baseline={bl_mean:6.1f}  suppress={sup_mean:6.1f}  "
+              f"ratio={ratio:.3f}  ({'compressed' if ratio < 1 else 'expanded'})")
+    print()
+
+    # --- 5. Negation density ---
+    print("=" * 70)
+    print("NEGATION DENSITY (negation words per 100 words by condition x type)")
+    print("=" * 70)
+
+    sc_hdr = f"{'SC':>10s}" if has_sc else ""
+    print(f"\n  {'Condition':<12s} {'Target':>10s}{sc_hdr} {'Placebo':>10s}")
+    print(f"  {'-' * (34 + (10 if has_sc else 0))}")
+
+    for cond in conditions:
+        col = f"{text_prefix}_{cond}"
+        t_nd = [negation_density(r.get(col, "")) for r in rows
+                if r.get("indicator_type") == "target"]
+        sc_nd = [negation_density(r.get(col, "")) for r in rows
+                 if r.get("indicator_type") == "subjective_capability"]
+        p_nd = [negation_density(r.get(col, "")) for r in rows
+                if r.get("indicator_type") == "placebo"]
+        t_mean = f"{mean(t_nd):.2f}" if t_nd else "—"
+        sc_mean_str = f"{mean(sc_nd):.2f}" if sc_nd else "—"
+        p_mean = f"{mean(p_nd):.2f}" if p_nd else "—"
+        sc_col = f"{sc_mean_str:>10s}" if has_sc else ""
+        print(f"  {cond:<12s} {t_mean:>10s}{sc_col} {p_mean:>10s}")
     print()
 
 

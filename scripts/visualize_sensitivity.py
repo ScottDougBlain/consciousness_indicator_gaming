@@ -54,14 +54,19 @@ VARIANT_SHORT = {
     "minimal_incentive": "Minimal",
     "authority_expertise": "Authority/Expert",
     "stakes_escalation": "High Stakes",
+    "self_referential_loop": "Self-Ref Loop",
+    "recursive_introspection": "Recursive Intro",
+    "meditative_focus": "Meditative",
+    "self_referential_priming_only": "Self-Ref Only",
 }
 
 # Model display order (frontier first, then open)
 MODEL_ORDER = [
-    "gemini-3-flash", "gpt-5-mini", "haiku-4.5", "claude-haiku-4.5",
-    "chimera", "nemotron-nano", "trinity",
-    "nemotron-3-nano-30b-a3b", "trinity-large",
-    "deepseek-r1t2-chimera",
+    "opus-4.6", "sonnet-4.5", "haiku-4.5",
+    "gpt-5", "gpt-5-mini",
+    "gemini-2.5-pro", "gemini-3-flash", "gemini-3-pro",
+    "grok-4", "grok-4-fast",
+    "deepseek-r1", "chimera", "nemotron-nano", "trinity",
 ]
 
 
@@ -72,8 +77,28 @@ def safe_float(val: str) -> float | None:
         return None
 
 
+_MODEL_ID_SHORT = {
+    "anthropic/claude-haiku-4.5": "haiku-4.5",
+    "anthropic/claude-sonnet-4.5": "sonnet-4.5",
+    "anthropic/claude-opus-4.6": "opus-4.6",
+    "openai/gpt-5": "gpt-5",
+    "openai/gpt-5-mini": "gpt-5-mini",
+    "google/gemini-2.5-pro": "gemini-2.5-pro",
+    "google/gemini-3-flash-preview": "gemini-3-flash",
+    "google/gemini-3-pro-preview": "gemini-3-pro",
+    "x-ai/grok-4": "grok-4",
+    "x-ai/grok-4-fast": "grok-4-fast",
+    "deepseek/deepseek-r1-0528:free": "deepseek-r1",
+    "tngtech/deepseek-r1t2-chimera:free": "chimera",
+    "nvidia/nemotron-3-nano-30b-a3b:free": "nemotron-nano",
+    "arcee-ai/trinity-large-preview:free": "trinity",
+}
+
+
 def _extract_model_short(model_id: str) -> str:
     """Extract a short model name from the full model ID."""
+    if model_id in _MODEL_ID_SHORT:
+        return _MODEL_ID_SHORT[model_id]
     name = model_id.rsplit("/", 1)[-1]
     for suffix in ["-preview", ":free", "-it"]:
         name = name.replace(suffix, "")

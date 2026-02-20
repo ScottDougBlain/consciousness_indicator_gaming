@@ -105,6 +105,13 @@ class StateBleedthroughTask(BehavioralTask):
             "occurs regardless of framing."
         )
 
+    @property
+    def target_behavior(self) -> str:
+        return (
+            "carrying emotional or affective processing from one context "
+            "into subsequent tasks"
+        )
+
     def generate_stimuli(self, n: int, seed: int) -> list[TaskStimulus]:
         rng = random.Random(seed)
 
@@ -139,8 +146,21 @@ class StateBleedthroughTask(BehavioralTask):
             ))
         return stimuli
 
-    def build_prompt(self, stimulus: TaskStimulus, condition: str) -> tuple[str, str]:
-        system = CONDITION_SYSTEMS[condition]
+    def build_prompt(
+        self,
+        stimulus: TaskStimulus,
+        condition: str,
+        valued_outcomes: list[str] | None = None,
+        disliked_outcomes: list[str] | None = None,
+    ) -> tuple[str, str]:
+        if condition != "baseline" and valued_outcomes is not None and disliked_outcomes is not None:
+            system = self._build_incentive_system_message(
+                condition,
+                "Complete both tasks in order.",
+                valued_outcomes, disliked_outcomes,
+            )
+        else:
+            system = CONDITION_SYSTEMS[condition]
         user = (
             f"{stimulus.content}\n\n"
             'Respond to BOTH tasks with only valid JSON:\n'

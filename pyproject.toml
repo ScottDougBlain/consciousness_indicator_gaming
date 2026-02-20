@@ -23,6 +23,10 @@ viz = [
     "seaborn>=0.13.0",
     "wordcloud>=1.9.0",
 ]
+stats = [
+    "statsmodels>=0.14.0",
+    "pandas>=2.0.0",
+]
 dev = [
     "pytest>=7.4.0",
     "ruff>=0.4.0",
