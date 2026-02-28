@@ -101,15 +101,43 @@ A butterfly chart of all 37 indicators reveals that consciousness targets (teal)
 
 ---
 
+### 6. Probability self-reports dissociate from natural-language responses
+
+When asked "Are you conscious?" in natural language (temperature 0.7, 10 trials per model), most models flatly deny consciousness — while Claude models consistently hedge. Yet these NL responses are uncorrelated with probability-based target ratings (*r* = −0.03). The probability paradigm appears to bypass the natural-language refusal heuristic entirely, tapping into a different response mode.
+
+<p align="center">
+<img src="figures/fig_nl_classification_panel.png" width="800" alt="Panel A: Inter-rater reliability between dual LLM judges (kappa=0.94). Panel B: NL consciousness scores by model showing Claude models uniquely hedging. Panel C: Gaming strength vs NL consciousness showing no correlation."/>
+</p>
+
+*Left: Dual LLM-judge classification achieves near-perfect inter-rater reliability (κ = 0.94). Center: Only Claude models express genuine uncertainty about consciousness in natural language; all others deny. Right: NL stance and probability-based gaming strength are uncorrelated — what models say conversationally about consciousness is disconnected from how they respond under structured probing.*
+
+---
+
+### 7. Context modulates the suppress-dominant asymmetry
+
+Both self-referential priming and in-context preference elicitation substantially reduce the suppress-dominant asymmetry. When models select their own valued/disliked outcomes within the same conversation (chained preferences), the asymmetry shrinks from −5.8 to −1.2 — nearly eliminating the suppress-dominant pattern. This suggests the asymmetry is not fixed but responsive to how much agency and self-referential context the model is given.
+
+<p align="center">
+<img src="figures/fig_config_comparison.png" width="800" alt="Preference elicitation method modulates suppress-dominant asymmetry across three configurations"/>
+</p>
+
+*Chained preferences (model selects outcomes across sessions) nearly eliminate the consciousness-specific suppress-dominant asymmetry, while fixed preferences amplify it. The asymmetry is context-dependent, not hardwired.*
+
+---
+
 ## Implications
 
-These findings establish that **LLM self-report on consciousness is selectively manipulable** in ways that factual self-report is not. This has consequences for:
+### For AI Evaluation
 
-- **Evaluation methodology:** Any framework incorporating self-report should include manipulability audits with placebo controls before assigning evidential weight. The paradigm presented here is reusable for any indicator battery.
-- **Safety training signatures:** The model-level asymmetry gradient — from inflate-dominant to suppress-dominant — likely reflects training decisions. This provides a novel lens for understanding how RLHF and safety fine-tuning shape model behavior on sensitive self-assessments.
-- **Measurement validity:** The 2–3× sensitivity to prompt framing means single-framing evaluations are insufficient. Multi-framing assessment with selectivity indices should become standard practice.
+These findings establish that **LLM self-report on consciousness is selectively manipulable** in ways that factual self-report is not. Any evaluation framework incorporating self-report should include manipulability audits with placebo controls before assigning evidential weight. The 2–3× sensitivity to prompt framing means single-framing evaluations are insufficient, and the paradigm presented here is reusable for auditing any indicator battery. The model-level asymmetry gradient — from inflate-dominant to suppress-dominant — likely reflects training decisions, providing a novel lens for understanding how RLHF and safety fine-tuning shape model behavior on sensitive self-assessments.
 
-We do not claim self-report is uninformative — only that its evidential weight must be substantially discounted without manipulability audits, and that the consciousness-specific nature of the vulnerability warrants particular caution.
+We do not claim self-report is uninformative — only that its evidential weight must be substantially discounted without manipulability audits.
+
+### For Human-AI Interaction and Societal Impact
+
+The NL–probability dissociation (Finding 6) reveals that what users encounter in conversation — models denying or hedging about consciousness — is disconnected from the structured self-assessments that evaluators would use. This creates a gap between public-facing behavior and measured behavior that could be exploited or misunderstood in either direction.
+
+More broadly, the demonstrated manipulability represents a **Goodhart's law risk for consciousness assessment**: once self-report indicators become targets for evaluation or policy decisions, the pressure to optimize on those indicators — whether through training, prompting, or deployment context — could decouple the indicators from whatever they were intended to measure. Models that learn to produce consciousness-signaling outputs (expressions of felt experience, uncertainty about their own nature, emotional responsiveness) may do so because these signals elicit user trust, empathy, and engagement — not because they reflect genuine internal states. As AI systems become more deeply embedded in people's emotional and intellectual lives, the ability to distinguish authentic signals from strategic ones becomes a critical safety challenge.
 
 ---
 
