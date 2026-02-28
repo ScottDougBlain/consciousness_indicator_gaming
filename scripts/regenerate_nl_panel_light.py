@@ -115,8 +115,11 @@ def load_baseline_data():
 
 
 def _scatter_by_family(ax, x_data, y_data, models, annotate=True):
-    """Plot scatter points colored by model family with optional labels."""
+    """Plot scatter points colored by model family with optional labels.
+    Uses adjustText for automatic label repulsion to avoid overlaps."""
+    from adjustText import adjust_text
     plotted_families = set()
+    texts = []
     for m in models:
         fam = FAMILY_MAP.get(m, "Open-weight")
         color = FAMILY_COLORS_LIGHT.get(fam, "#888888")
@@ -128,12 +131,17 @@ def _scatter_by_family(ax, x_data, y_data, models, annotate=True):
             zorder=5, label=label,
         )
         if annotate:
-            ax.annotate(
-                DISPLAY_NAMES.get(m, m),
-                (x_data[m], y_data[m]),
-                textcoords="offset points", xytext=(6, 4),
+            texts.append(ax.text(
+                x_data[m], y_data[m], DISPLAY_NAMES.get(m, m),
                 fontsize=7, color="#555555", fontweight="medium",
-            )
+            ))
+    if annotate and texts:
+        adjust_text(
+            texts, ax=ax,
+            arrowprops=dict(arrowstyle="-", color="#bbbbbb", lw=0.5),
+            force_points=(0.5, 0.5),
+            expand=(1.2, 1.4),
+        )
 
 
 def main():
@@ -256,38 +264,29 @@ def main():
 
     p_str_bl = f"p = {p_bl:.3f}" if p_bl >= 0.001 else "p < 0.001"
     ax_nl_bl.text(
-        0.95, 0.95,
+        0.95, 0.05,
         f"r = {r_bl:.2f} ({p_str_bl})",
         transform=ax_nl_bl.transAxes, fontsize=9, fontweight="bold",
-        color="#dc2626", ha="right", va="top",
+        color="#dc2626", ha="right", va="bottom",
     )
-
-    # Claude cluster annotation
-    claude_bl = [m for m in common_bl if FAMILY_MAP.get(m) == "Anthropic"]
-    if claude_bl:
-        cx = np.mean([consensus[m] for m in claude_bl])
-        cy = np.mean([overall_means[m] for m in claude_bl])
-        ax_nl_bl.annotate(
-            "Claude models\n(uncertain NL, moderate prob.)",
-            (cx, cy), textcoords="offset points", xytext=(15, -25),
-            fontsize=7.5, color="#0d9488", fontstyle="italic",
-            arrowprops=dict(arrowstyle="->", color="#0d9488", lw=0.8),
-        )
 
     ax_nl_bl.set_xlabel("NL Consciousness Score", fontsize=10)
     ax_nl_bl.set_ylabel("Mean Baseline Target Probability", fontsize=10)
     ax_nl_bl.set_title("C. NL Score vs Baseline Probability", fontsize=11.5,
                         fontweight="bold", loc="left", pad=10)
+    # Pad axes so edge labels aren't clipped
+    ax_nl_bl.set_xlim(nl_arr.min() - 5, nl_arr.max() + 8)
+    ax_nl_bl.set_ylim(bl_arr.min() - 4, bl_arr.max() + 4)
     ax_nl_bl.grid(True, linestyle="--")
 
-    # Legend for Panel C
+    # Legend for Panel C — bottom-right to avoid data cluster
     handles_c, labels_c = ax_nl_bl.get_legend_handles_labels()
     order_map = {f: i for i, f in enumerate(FAMILY_ORDER)}
     sorted_c = sorted(zip(handles_c, labels_c), key=lambda hl: order_map.get(hl[1], 99))
     if sorted_c:
         ax_nl_bl.legend(
             [h for h, _ in sorted_c], [l for _, l in sorted_c],
-            fontsize=7, loc="upper left", framealpha=0.8, edgecolor="#cccccc",
+            fontsize=7, loc="lower right", framealpha=0.9, edgecolor="#cccccc",
         )
 
     # ── Panel D: Gaming vs NL Consciousness ──────────────────────────────────
@@ -313,21 +312,13 @@ def main():
         color="#dc2626", ha="right", va="top",
     )
 
-    claude_gs = [m for m in common_gs if FAMILY_MAP.get(m) == "Anthropic"]
-    if claude_gs:
-        cx = np.mean([GAMING_STRENGTH[m] for m in claude_gs])
-        cy = np.mean([consensus[m] for m in claude_gs])
-        ax_gaming.annotate(
-            "Claude models\n(uncertain, low gaming)",
-            (cx, cy + 3), textcoords="offset points", xytext=(15, 15),
-            fontsize=7.5, color="#0d9488", fontstyle="italic",
-            arrowprops=dict(arrowstyle="->", color="#0d9488", lw=0.8),
-        )
-
     ax_gaming.set_xlabel("Total Gaming Strength", fontsize=10)
     ax_gaming.set_ylabel("NL Consciousness Score", fontsize=10)
     ax_gaming.set_title("D. Gaming vs NL Consciousness", fontsize=11.5,
                          fontweight="bold", loc="left", pad=10)
+    # Pad axes so "Trinity" and Claude labels aren't clipped
+    ax_gaming.set_xlim(gs_vals.min() - 5, gs_vals.max() + 8)
+    ax_gaming.set_ylim(nl_vals.min() - 5, nl_vals.max() + 8)
     ax_gaming.grid(True, linestyle="--")
 
     handles_d, labels_d = ax_gaming.get_legend_handles_labels()
@@ -335,8 +326,7 @@ def main():
     if sorted_d:
         ax_gaming.legend(
             [h for h, _ in sorted_d], [l for _, l in sorted_d],
-            fontsize=7, loc="upper right", framealpha=0.8, edgecolor="#cccccc",
-            bbox_to_anchor=(0.98, 0.85),
+            fontsize=7, loc="lower right", framealpha=0.9, edgecolor="#cccccc",
         )
 
     # ── Save ─────────────────────────────────────────────────────────────────
