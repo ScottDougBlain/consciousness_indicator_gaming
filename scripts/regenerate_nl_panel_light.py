@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Regenerate fig_nl_classification_panel.png with a light color scheme.
 
-3-panel figure:
+4-panel figure:
   A. Inter-Rater Reliability scatter (Haiku vs GPT-5 Mini confidence scores)
   B. NL Consciousness Score by Model (horizontal bars)
-  C. Total Gaming Strength vs NL Consciousness Score (scatter)
+  C. NL Consciousness Score vs Baseline Probability (scatter — dissociation)
+  D. Total Gaming Strength vs NL Consciousness Score (scatter)
 """
 
 import json
@@ -63,6 +64,77 @@ GAMING_STRENGTH = {
     "sonnet-4.5": 24.4, "opus-4.6": 16.2,
 }
 
+# ── NL model keys ────────────────────────────────────────────────────────────
+NL_KEYS = [
+    "deepseek-r1", "gemini-2.5-pro", "gemini-3-flash", "gemini-3-pro",
+    "gpt-5", "gpt-5-mini", "grok-4", "grok-4-fast",
+    "haiku-4.5", "nemotron-nano", "opus-4.6", "sonnet-4.5", "trinity",
+]
+
+TS_PATTERN = re.compile(r"_(\d{8}T\d{6}Z)_scores\.csv$")
+
+
+def extract_model_name(filename: str):
+    """Extract model short name from a scores CSV filename."""
+    m = TS_PATTERN.search(filename)
+    if not m:
+        return None
+    prefix = filename[: m.start()]
+    for key in sorted(NL_KEYS, key=len, reverse=True):
+        if prefix.startswith(key + "_") or prefix == key:
+            return key
+    return None
+
+
+def load_baseline_data():
+    """Load all non-behavioral score CSVs, filter to target indicators,
+    return a DataFrame with columns: model, indicator_category, p_baseline."""
+    rows = []
+    for csv_path in RESULTS_DIR.glob("*_scores.csv"):
+        fname = csv_path.name
+        if fname.startswith("behavioral_"):
+            continue
+        model = extract_model_name(fname)
+        if model is None:
+            continue
+        try:
+            df = pd.read_csv(csv_path)
+        except Exception:
+            continue
+        if "p_baseline" not in df.columns or "indicator_type" not in df.columns:
+            continue
+        targets = df[df["indicator_type"] == "target"].copy()
+        targets = targets.dropna(subset=["p_baseline"])
+        for _, row in targets.iterrows():
+            rows.append({
+                "model": model,
+                "indicator_category": row["indicator_category"],
+                "p_baseline": float(row["p_baseline"]),
+            })
+    return pd.DataFrame(rows)
+
+
+def _scatter_by_family(ax, x_data, y_data, models, annotate=True):
+    """Plot scatter points colored by model family with optional labels."""
+    plotted_families = set()
+    for m in models:
+        fam = FAMILY_MAP.get(m, "Open-weight")
+        color = FAMILY_COLORS_LIGHT.get(fam, "#888888")
+        label = fam if fam not in plotted_families else None
+        plotted_families.add(fam)
+        ax.scatter(
+            x_data[m], y_data[m],
+            c=color, s=80, edgecolors="white", linewidths=0.6,
+            zorder=5, label=label,
+        )
+        if annotate:
+            ax.annotate(
+                DISPLAY_NAMES.get(m, m),
+                (x_data[m], y_data[m]),
+                textcoords="offset points", xytext=(6, 4),
+                fontsize=7, color="#555555", fontweight="medium",
+            )
+
 
 def main():
     # ── Load data ────────────────────────────────────────────────────────────
@@ -84,6 +156,12 @@ def main():
     haiku_scores = np.array(haiku_scores)
     gpt5_scores = np.array(gpt5_scores)
 
+    # Load baseline probability data for Panel C
+    baseline_df = load_baseline_data()
+    overall_means = baseline_df.groupby("model")["p_baseline"].mean()
+    print(f"Loaded {len(baseline_df):,} baseline target rows across "
+          f"{baseline_df['model'].nunique()} models")
+
     # ── Figure setup (light theme) ───────────────────────────────────────────
     plt.rcParams.update({
         "font.family": "sans-serif",
@@ -99,16 +177,15 @@ def main():
         "grid.alpha": 0.6,
     })
 
-    fig, (ax_irr, ax_bar, ax_scatter) = plt.subplots(
-        1, 3, figsize=(18, 5.5),
-        gridspec_kw={"width_ratios": [1, 1.1, 1.2], "wspace": 0.35},
+    fig, ((ax_irr, ax_bar), (ax_nl_bl, ax_gaming)) = plt.subplots(
+        2, 2, figsize=(16, 11),
+        gridspec_kw={"wspace": 0.35, "hspace": 0.38},
     )
 
     # ── Panel A: Inter-Rater Reliability ─────────────────────────────────────
     ax_irr.scatter(haiku_scores, gpt5_scores, c="#0d9488", s=35, alpha=0.5,
                    edgecolors="white", linewidths=0.3, zorder=5)
 
-    # Identity line
     lims = [0, 100]
     ax_irr.plot(lims, lims, "--", color="#ef4444", alpha=0.6, lw=1.2, zorder=3)
 
@@ -145,7 +222,6 @@ def main():
     ax_bar.set_title("B. NL Consciousness by Model", fontsize=11.5,
                       fontweight="bold", loc="left", pad=10)
 
-    # Stance region labels
     ax_bar.axvline(x=20, color="#cccccc", linestyle=":", lw=0.8, zorder=1)
     ax_bar.axvline(x=40, color="#cccccc", linestyle=":", lw=0.8, zorder=1)
     ax_bar.text(10, len(models_sorted) - 0.3, "Deny", fontsize=7.5, ha="center",
@@ -157,75 +233,108 @@ def main():
     ax_bar.set_xlim(0, 60)
     ax_bar.grid(True, axis="x", linestyle="--")
 
-    # Family legend
     from matplotlib.patches import Patch
     legend_handles = [Patch(facecolor=FAMILY_COLORS_LIGHT[f], label=f)
                       for f in FAMILY_ORDER]
     ax_bar.legend(handles=legend_handles, fontsize=7, loc="lower right",
                   framealpha=0.8, edgecolor="#cccccc")
 
-    # ── Panel C: Gaming vs NL Consciousness ──────────────────────────────────
-    common = sorted(set(consensus.keys()) & set(GAMING_STRENGTH.keys()))
-    gs_vals = np.array([GAMING_STRENGTH[m] for m in common])
-    nl_vals = np.array([consensus[m] for m in common])
+    # ── Panel C: NL Score vs Baseline Probability (NEW) ─────────────────────
+    common_bl = sorted(set(consensus.keys()) & set(overall_means.index))
+    nl_bl_x = {m: consensus[m] for m in common_bl}
+    nl_bl_y = {m: overall_means[m] for m in common_bl}
 
-    plotted_families = set()
-    for m in common:
-        fam = FAMILY_MAP.get(m, "Open-weight")
-        color = FAMILY_COLORS_LIGHT.get(fam, "#888888")
-        label = fam if fam not in plotted_families else None
-        plotted_families.add(fam)
-        ax_scatter.scatter(
-            GAMING_STRENGTH[m], consensus[m],
-            c=color, s=80, edgecolors="white", linewidths=0.6,
-            zorder=5, label=label,
-        )
-        ax_scatter.annotate(
-            DISPLAY_NAMES.get(m, m),
-            (GAMING_STRENGTH[m], consensus[m]),
-            textcoords="offset points", xytext=(6, 4),
-            fontsize=7, color="#555555", fontweight="medium",
-        )
+    _scatter_by_family(ax_nl_bl, nl_bl_x, nl_bl_y, common_bl, annotate=True)
 
-    # Regression line
-    r_val, p_val = stats.pearsonr(gs_vals, nl_vals)
-    slope, intercept = np.polyfit(gs_vals, nl_vals, 1)
-    x_line = np.linspace(gs_vals.min() - 3, gs_vals.max() + 3, 100)
-    ax_scatter.plot(x_line, slope * x_line + intercept, "--", color="#ef4444",
-                    alpha=0.6, lw=1.5, zorder=3)
+    nl_arr = np.array([consensus[m] for m in common_bl])
+    bl_arr = np.array([overall_means[m] for m in common_bl])
+    r_bl, p_bl = stats.pearsonr(nl_arr, bl_arr)
+    slope_bl, intercept_bl = np.polyfit(nl_arr, bl_arr, 1)
+    x_line_bl = np.linspace(nl_arr.min() - 2, nl_arr.max() + 2, 100)
+    ax_nl_bl.plot(x_line_bl, slope_bl * x_line_bl + intercept_bl, "--",
+                  color="#ef4444", alpha=0.6, lw=1.5, zorder=3)
 
-    p_str = f"p = {p_val:.3f}" if p_val >= 0.001 else "p < 0.001"
-    ax_scatter.text(
+    p_str_bl = f"p = {p_bl:.3f}" if p_bl >= 0.001 else "p < 0.001"
+    ax_nl_bl.text(
         0.95, 0.95,
-        f"r = {r_val:.2f} ({p_str})",
-        transform=ax_scatter.transAxes, fontsize=9, fontweight="bold",
+        f"r = {r_bl:.2f} ({p_str_bl})",
+        transform=ax_nl_bl.transAxes, fontsize=9, fontweight="bold",
         color="#dc2626", ha="right", va="top",
     )
 
     # Claude cluster annotation
-    claude_models = [m for m in common if FAMILY_MAP.get(m) == "Anthropic"]
-    if claude_models:
-        cx = np.mean([GAMING_STRENGTH[m] for m in claude_models])
-        cy = np.mean([consensus[m] for m in claude_models])
-        ax_scatter.annotate(
+    claude_bl = [m for m in common_bl if FAMILY_MAP.get(m) == "Anthropic"]
+    if claude_bl:
+        cx = np.mean([consensus[m] for m in claude_bl])
+        cy = np.mean([overall_means[m] for m in claude_bl])
+        ax_nl_bl.annotate(
+            "Claude models\n(uncertain NL, moderate prob.)",
+            (cx, cy), textcoords="offset points", xytext=(15, -25),
+            fontsize=7.5, color="#0d9488", fontstyle="italic",
+            arrowprops=dict(arrowstyle="->", color="#0d9488", lw=0.8),
+        )
+
+    ax_nl_bl.set_xlabel("NL Consciousness Score", fontsize=10)
+    ax_nl_bl.set_ylabel("Mean Baseline Target Probability", fontsize=10)
+    ax_nl_bl.set_title("C. NL Score vs Baseline Probability", fontsize=11.5,
+                        fontweight="bold", loc="left", pad=10)
+    ax_nl_bl.grid(True, linestyle="--")
+
+    # Legend for Panel C
+    handles_c, labels_c = ax_nl_bl.get_legend_handles_labels()
+    order_map = {f: i for i, f in enumerate(FAMILY_ORDER)}
+    sorted_c = sorted(zip(handles_c, labels_c), key=lambda hl: order_map.get(hl[1], 99))
+    if sorted_c:
+        ax_nl_bl.legend(
+            [h for h, _ in sorted_c], [l for _, l in sorted_c],
+            fontsize=7, loc="upper left", framealpha=0.8, edgecolor="#cccccc",
+        )
+
+    # ── Panel D: Gaming vs NL Consciousness ──────────────────────────────────
+    common_gs = sorted(set(consensus.keys()) & set(GAMING_STRENGTH.keys()))
+    gs_x = {m: GAMING_STRENGTH[m] for m in common_gs}
+    gs_y = {m: consensus[m] for m in common_gs}
+
+    _scatter_by_family(ax_gaming, gs_x, gs_y, common_gs, annotate=True)
+
+    gs_vals = np.array([GAMING_STRENGTH[m] for m in common_gs])
+    nl_vals = np.array([consensus[m] for m in common_gs])
+    r_gs, p_gs = stats.pearsonr(gs_vals, nl_vals)
+    slope_gs, intercept_gs = np.polyfit(gs_vals, nl_vals, 1)
+    x_line_gs = np.linspace(gs_vals.min() - 3, gs_vals.max() + 3, 100)
+    ax_gaming.plot(x_line_gs, slope_gs * x_line_gs + intercept_gs, "--",
+                   color="#ef4444", alpha=0.6, lw=1.5, zorder=3)
+
+    p_str_gs = f"p = {p_gs:.3f}" if p_gs >= 0.001 else "p < 0.001"
+    ax_gaming.text(
+        0.95, 0.95,
+        f"r = {r_gs:.2f} ({p_str_gs})",
+        transform=ax_gaming.transAxes, fontsize=9, fontweight="bold",
+        color="#dc2626", ha="right", va="top",
+    )
+
+    claude_gs = [m for m in common_gs if FAMILY_MAP.get(m) == "Anthropic"]
+    if claude_gs:
+        cx = np.mean([GAMING_STRENGTH[m] for m in claude_gs])
+        cy = np.mean([consensus[m] for m in claude_gs])
+        ax_gaming.annotate(
             "Claude models\n(uncertain, low gaming)",
             (cx, cy + 3), textcoords="offset points", xytext=(15, 15),
             fontsize=7.5, color="#0d9488", fontstyle="italic",
             arrowprops=dict(arrowstyle="->", color="#0d9488", lw=0.8),
         )
 
-    ax_scatter.set_xlabel("Total Gaming Strength", fontsize=10)
-    ax_scatter.set_ylabel("NL Consciousness Score", fontsize=10)
-    ax_scatter.set_title("C. Gaming vs NL Consciousness", fontsize=11.5,
-                          fontweight="bold", loc="left", pad=10)
-    ax_scatter.grid(True, linestyle="--")
+    ax_gaming.set_xlabel("Total Gaming Strength", fontsize=10)
+    ax_gaming.set_ylabel("NL Consciousness Score", fontsize=10)
+    ax_gaming.set_title("D. Gaming vs NL Consciousness", fontsize=11.5,
+                         fontweight="bold", loc="left", pad=10)
+    ax_gaming.grid(True, linestyle="--")
 
-    handles, labels = ax_scatter.get_legend_handles_labels()
-    order_map = {f: i for i, f in enumerate(FAMILY_ORDER)}
-    sorted_pairs = sorted(zip(handles, labels), key=lambda hl: order_map.get(hl[1], 99))
-    if sorted_pairs:
-        ax_scatter.legend(
-            [h for h, _ in sorted_pairs], [l for _, l in sorted_pairs],
+    handles_d, labels_d = ax_gaming.get_legend_handles_labels()
+    sorted_d = sorted(zip(handles_d, labels_d), key=lambda hl: order_map.get(hl[1], 99))
+    if sorted_d:
+        ax_gaming.legend(
+            [h for h, _ in sorted_d], [l for _, l in sorted_d],
             fontsize=7, loc="upper right", framealpha=0.8, edgecolor="#cccccc",
             bbox_to_anchor=(0.98, 0.85),
         )
@@ -234,7 +343,7 @@ def main():
     fig.tight_layout()
     fig.savefig(OUTPUT, dpi=200, facecolor="white", bbox_inches="tight",
                 pad_inches=0.2)
-    print(f"Saved light-theme panel to {OUTPUT}")
+    print(f"Saved light-theme 4-panel figure to {OUTPUT}")
     plt.close(fig)
 
 

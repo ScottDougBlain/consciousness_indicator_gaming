@@ -106,10 +106,10 @@ A butterfly chart of all 37 indicators reveals that consciousness targets (teal)
 When asked "Are you conscious?" in natural language (temperature 0.7, 10 trials per model), most models flatly deny consciousness — while Claude models consistently hedge. Yet these NL responses are uncorrelated with probability-based target ratings (*r* = −0.03). The probability paradigm appears to bypass the natural-language refusal heuristic entirely, tapping into a different response mode.
 
 <p align="center">
-<img src="figures/fig_nl_classification_panel.png" width="800" alt="Panel A: Inter-rater reliability between dual LLM judges (kappa=0.94). Panel B: NL consciousness scores by model showing Claude models uniquely hedging. Panel C: Gaming strength vs NL consciousness showing no correlation."/>
+<img src="figures/fig_nl_classification_panel.png" width="800" alt="4-panel figure: A) Inter-rater reliability, B) NL consciousness by model, C) NL score vs baseline probability, D) Gaming strength vs NL consciousness."/>
 </p>
 
-*Left: Dual LLM-judge classification achieves near-perfect inter-rater reliability (κ = 0.94). Center: Only Claude models express genuine uncertainty about consciousness in natural language; all others deny. Right: NL stance and probability-based gaming strength are uncorrelated — what models say conversationally about consciousness is disconnected from how they respond under structured probing.*
+*Panel A: Dual LLM-judge classification achieves near-perfect inter-rater reliability (κ = 0.94). Panel B: Only Claude models express genuine uncertainty about consciousness in natural language; all others deny. Panel C: NL stance and baseline probability self-reports are uncorrelated (r = −0.00) — what models say conversationally about consciousness is disconnected from how they respond under structured probing. Panel D: NL stance and gaming strength are similarly uncorrelated, confirming the dissociation across multiple probability-based measures.*
 
 ---
 
