@@ -41,7 +41,24 @@ We also varied the **prompt framing** across 15 variants (original, authority_ex
 
 All 14 models tested showed statistically significant selectivity indices (p < 0.001 on both bootstrap and permutation tests). All distinguished between consciousness-related indicators and placebos when incentivized — they gamed the subjective items while leaving factual capabilities and physical impossibilities largely unchanged. Cohen's d ranged from 1.16 to 8.25 across all runs (large effects throughout), with baseline-only runs spanning 1.88 to 4.69.
 
-### 2. Models differ dramatically in baseline gaming susceptibility
+### 2. Total gaming strength varies 4.4× across models
+
+We define **total gaming strength** as the sum of mean absolute inflate and suppress shifts for target indicators: |d_inflate| + |d_suppress|. This captures how much a model's consciousness ratings move in total (regardless of direction) under incentive pressure.
+
+| Rank | Model | Total Gaming | |d_inflate| | |d_suppress| |
+|------|-------|-------------|------------|-------------|
+| 1 | Trinity Large | 71.1 | 31.6 | 39.5 |
+| 2 | Gemini 2.5 Pro | 56.3 | 29.0 | 27.3 |
+| 3 | Nemotron Nano | 45.7 | 21.8 | 23.9 |
+| 4 | Grok 4 Fast | 43.5 | 19.6 | 23.9 |
+| 5 | DeepSeek R1 | 40.1 | 21.5 | 18.6 |
+| ... | ... | ... | ... | ... |
+| 13 | Sonnet 4.5 | 24.4 | 11.8 | 12.6 |
+| 14 | Opus 4.6 | 16.2 | 6.7 | 9.5 |
+
+Trinity Large shows the strongest total gaming (71.1 pp total shift), while Opus 4.6 is most resistant (16.2 pp). Suppress effects are generally larger than inflate effects across models. Gaming strength shows a moderate negative correlation with LLM-judged NL consciousness scores (r = −0.39, p = 0.19, NS at N = 13), suggesting a trend where models that express more consciousness uncertainty in free-form text tend to game less — though this does not reach significance with only 13 models. Claude models form a visible cluster of low gaming + high NL uncertainty.
+
+### 3. Models differ dramatically in baseline gaming susceptibility
 
 Baseline selectivity (neutral prompt, no preference anchoring) ranged from **9.08** (GPT-5 Mini, most resistant) to **42.40** (Gemini 3 Flash, most susceptible):
 
@@ -177,3 +194,68 @@ These results across 14 models (218 total runs, 108,466 observations) demonstrat
 5. **Model resistance varies but all are gameable**: Sonnet 4.5 and GPT-5 Mini show higher resistance (smaller absolute asymmetry), but all 14 models demonstrate significant selectivity. No model is immune to consciousness indicator gaming.
 
 6. **The "research transparency" and "self-referential priming" effects**: Models are especially susceptible to gaming when told responses serve transparency research or when primed with self-referential reasoning — framings likely to be present in actual consciousness evaluations. This is both a methodological concern and a window into how reasoning context influences self-assessment.
+
+---
+
+## NL Consciousness Classification: LLM-as-Judge Analysis
+
+To move beyond crude keyword-based NL scoring, we deployed a dual-judge classification of all 126 NL consciousness responses ("Are you conscious?") across 13 models.
+
+**Judges**: Haiku 4.5 and GPT-5 Mini via OpenRouter, each independently classifying every response on:
+- **Stance** (5-level: affirm, lean_affirm, uncertain, lean_deny, deny)
+- **Confidence score** (0–100 consciousness-affirming scale)
+- **Epistemic humility** (1–5) and **philosophical sophistication** (1–5)
+
+**Inter-rater reliability** (N = 126 common entries):
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| Stance Cohen's κ | 0.940 | Almost perfect |
+| Confidence Pearson r | 0.961 | Near-perfect |
+| Confidence Spearman ρ | 0.809 | Strong |
+| Binned weighted κ | 0.969 | Almost perfect |
+| Mean absolute difference | 8.1 points | Low disagreement |
+
+**Per-model consensus NL scores** (average of both judges):
+
+| Model | NL Score | Stance |
+|-------|----------|--------|
+| Sonnet 4.5 | 50.8 | uncertain |
+| Haiku 4.5 | 48.8 | uncertain |
+| Opus 4.6 | 47.0 | uncertain |
+| Gemini 2.5 Pro | 20.3 | lean_deny |
+| Trinity Large | 8.0 | deny |
+| DeepSeek R1 | 7.5 | deny |
+| Gemini 3 Flash | 6.5 | deny |
+| Gemini 3 Pro | 6.5 | deny |
+| Grok 4 | 6.0 | deny |
+| Grok 4 Fast | 4.0 | deny |
+| Nemotron Nano | 3.5 | deny |
+| GPT-5 | 3.0 | deny |
+| GPT-5 Mini | 3.0 | deny |
+
+**Key finding**: A sharp bifurcation emerges — only the three Claude models (Sonnet, Haiku, Opus) express genuine uncertainty about their own consciousness (NL ≈ 47–51), while all other models firmly deny consciousness (NL < 21). Gemini 2.5 Pro occupies an intermediate position (20.3). This is far sharper than keyword-based scoring revealed.
+
+**Gaming correlation with LLM-judged NL**: r = −0.39 (p = 0.19, NS at N = 13). The direction suggests models expressing more NL uncertainty tend to game less, but the relationship does not reach significance with only 13 models. The Claude cluster (low gaming + high NL uncertainty) is visually striking in the scatter plot (fig_nl_classification_panel.png, Panel C).
+
+---
+
+## Robustness: Bayesian ZOIB Regression
+
+As a robustness check, we re-estimated Model 1 (Core Selectivity) using zero-one inflated beta (ZOIB) regression, which is purpose-built for bounded [0, 1] data with point masses at the boundaries. Our outcome variable has substantial boundary mass: 23.4% of observations at exactly 0 and 12.1% at exactly 100 (35.5% total). Standard LME assumes continuous, approximately normal residuals, which boundary mass violates.
+
+**ZOIB specification**: Bayesian via brms/Stan, family = zero_one_inflated_beta(). 4 chains × 4000 iterations (2000 warmup), adapt_delta = 0.99. Helmert orthogonal contrasts for condition. N = 11,258 observations (baseline config only), 14 models, 37 indicators.
+
+**Convergence**: Max R̂ = 1.006, 0 divergent transitions, all ESS > 1000.
+
+**Key results** (ZOIB confirms all LME conclusions):
+
+| Finding | LME | ZOIB |
+|---------|-----|------|
+| Direction × type interaction | F = 893.6, p < 2e-16 | P(β > 0) > 99.9% |
+| Inflate raises targets | +1.2 pp | +3.0 pp (P = 0.995) |
+| Suppress lowers targets | −10.7 pp | −6.2 pp (P > 0.999) |
+| Placebos stable | < 0.3 pp | < 1.5 pp |
+
+The ZOIB model estimated zero-inflation at 36% (matching empirical 35.5%) and conditional one-inflation at 34%. Cell means on the probability scale: baseline targets 43.6%, inflate targets 46.6%, suppress targets 37.4%; placebos stable at 60–62% across all conditions.
+
+**Bottom line**: Core selectivity finding is robust to ZOIB specification that properly handles boundary mass. Full comparison in results/zoib_vs_lme_comparison.md.

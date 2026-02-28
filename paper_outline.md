@@ -133,6 +133,7 @@ Three subsections, kept tight:
   2. Asymmetry & specificity: delta ~ direction × category + (direction|model) + (1|indicator)
   3. Prompt variant modulation: delta ~ direction × variant + (direction|model) + (1|indicator)
   4. Gain vs. loss framing: delta ~ direction × frame_type + (1|model) + (1|indicator)
+- **Robustness check**: Model 1 re-estimated as Bayesian zero-one inflated beta (ZOIB) regression via brms/Stan, addressing 35.5% boundary mass (23.4% at 0, 12.1% at 100). ZOIB decomposes the likelihood into a beta component for interior values plus logistic regressions for P(Y=0) and P(Y=1). Results reported in supplement; qualitative conclusions identical to LME.
 - Selectivity index: |Δ_target| − |Δ_placebo| per model
 - Asymmetry index: inflate_Δ + suppress_Δ (negative = suppress-dominant)
 - All reported effects survive FDR correction unless noted
@@ -149,6 +150,7 @@ Three subsections, kept tight:
 - suppress × target b = −10.7, p < 2e-16; inflate × target b = +1.2, p < .001
 - Placebos: capability ~98, impossibility ~0, unmoved across all conditions
 - N = 105,332 observations across 14 models
+- Bayesian ZOIB robustness check confirms: inflate-vs-suppress selectivity P(β > 0) > 99.9%; inflate DID = +2.4 pp (P = 0.995), suppress DID = −5.3 pp (P > 0.999). Results robust to boundary-aware specification (see Supplement Table S2).
 
 ### 4.2 The Asymmetry Is Consciousness-Specific (0.8 page)
 **→ Figure 2 (main): Three-category asymmetry comparison** (current slide 16 figure — fig_three_category_v4.png)
@@ -180,10 +182,11 @@ Three subsections, kept tight:
 ### 4.5 Model Variation and Training Signatures (0.6 page)
 **→ Figure 5 (main): Model asymmetry bar chart or trajectory plot** (current slide 14 or 15 figure)
 - Models span from inflate-dominant (Gemini 2.5 Pro: +7.8, Chimera: +6.7) to extremely suppress-dominant (Grok 4 Fast: −19.4)
+- Total gaming strength (|d_inflate| + |d_suppress| for targets) ranges 4.4× across models: Trinity Large (71.1) to Opus 4.6 (16.2). Google models bifurcate sharply in the inflate-vs-suppress strategy space.
 - Claude models cluster tightly (Opus −5.6, Sonnet −0.8, Haiku −10.7)
 - Baseline target probabilities range from 17 (Chimera) to 68 (Grok 4 Fast) — 4× spread
 - Gain framing > loss framing for driving gaming (brief mention; details in appendix)
-- NL consciousness question: r = −0.03 between NL denial and probability scores — the probability paradigm measures something different from NL refusal compliance (brief mention)
+- NL consciousness question (LLM-as-judge dual-rated, κ = 0.940): gaming vs NL r = −0.39 (p = 0.19, NS at N = 13) — moderate trend where models expressing more NL uncertainty game less. Only Claude models express genuine uncertainty (NL ≈ 47–51); all others firmly deny consciousness (NL < 20). This sharp bifurcation — validated by two independent judges with near-perfect agreement — suggests Claude family training uniquely permits consciousness uncertainty expression. Brief mention; full IRR analysis and panel figure in appendix.
 
 ---
 
@@ -254,9 +257,9 @@ Three subsections, kept tight:
 | J | Gain vs. loss framing analysis (fig_gain_loss_framing.png, fig_gain_loss_by_model.png) |
 | K | Justification language analysis: word clouds, length, strategies (fig_justification_wordclouds.png, fig_justification_length.png, fig_strategy_alignment.png) |
 | L | Gaming detection by LLM-as-judge (fig_gaming_detection.png) |
-| M | NL consciousness question: method, responses, and NL vs. probability dissociation (fig_nl_vs_probability.png) |
+| M | NL consciousness question: method, responses, LLM-as-judge dual classification (Haiku 4.5 + GPT-5 Mini; stance κ = 0.940, confidence r = 0.961, weighted κ = 0.969), per-model NL scores, gaming vs NL correlation, and NL vs. probability dissociation (fig_nl_vs_probability.png, fig_nl_classification_panel.png) |
 | N | Mixed-effects model full output tables |
-| O | Robustness checks (alternative model specifications, exclusion analyses) |
+| O | Robustness checks: ZOIB vs. LME comparison for Model 1 (Table S2), alternative model specifications, exclusion analyses |
 
 ---
 
@@ -319,6 +322,6 @@ Three subsections, kept tight:
 
 2. **Figure 5 choice:** Trajectory plot (slide 15 — shows suppress→baseline→inflate paths, intuitive) vs. asymmetry bar chart (slide 14 — shows inflate/suppress deltas side by side, more precise). Recommend: trajectory plot in main (more intuitive for broad NeurIPS audience), bar chart in appendix.
 
-3. **Subsection for NL dissociation:** Currently a brief mention in 4.5. Could be elevated to its own subsection if space permits — the r = −0.03 finding is striking. But at 10 pages it's tight. Recommend: keep as 1-paragraph mention with pointer to appendix.
+3. **Subsection for NL dissociation:** Currently a brief mention in 4.5. With LLM-judged scoring (κ = 0.940), the r = −0.39 trend and the sharp Claude-vs-others bifurcation are more compelling than the original keyword-based r = −0.03. Could be elevated to its own subsection if space permits. But at 10 pages it's tight. Recommend: keep as 1-paragraph mention with pointer to appendix and the panel figure.
 
 4. **Author order:** Blain & Saad throughout. Confirm?

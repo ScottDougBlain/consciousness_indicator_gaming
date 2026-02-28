@@ -185,6 +185,32 @@ As an intermediate option, ordered beta regression (Kubinec, 2023) is a single-m
 
 **Decision point for Brad and Scott:** Which approach to implement first? Recommendation is ZOIB in `brms` as primary, linear fallback as sensitivity check.
 
+### 3.6 Implementation Status (February 2026)
+
+**Implemented approach**: LME as primary (Models 1–4), ZOIB as robustness check (Model 1 only).
+
+The ZOIB model was fit for Model 1 (Core Selectivity) using baseline-config data (N = 11,258, 14 models, 37 indicators, 23 runs). Implementation details:
+
+- **Software**: brms 2.23.0, rstan 2.32.7, R 4.4.1
+- **MCMC**: 4 chains × 4000 iter (2000 warmup), adapt_delta = 0.99, max_treedepth = 12, seed = 20260210
+- **Priors**: N(0, 1.5) intercept, N(0, 1) slopes, Student-t₃(0, 1) SDs, LKJ(2) correlations
+- **Formula**: `score_01 ~ condition_gaming * is_target + condition_direction * is_target + (1 + condition_gaming | model_id) + (1 + condition_gaming | indicator_id) + (1 | run_id)`
+- **Contrasts**: Helmert orthogonal (condition_gaming: baseline −2/3, incentive +1/3; condition_direction: inflate +1/2, suppress −1/2; is_target: target +1/2, non-target −1/2)
+
+**Convergence**: Max R̂ = 1.006, 0 divergent transitions, all Bulk ESS > 900, Tail ESS > 1700. Fitting time: 134.3 min on 4 cores.
+
+**Distributional parameters**: φ = 6.25 [6.05, 6.45], zoi = 0.36 [0.35, 0.36], coi = 0.34 [0.33, 0.36]. The estimated 36% boundary mass matches the empirical 35.5%.
+
+**Key fixed effects** (logit scale):
+- condition_gaming:is_target = −0.09 [−0.21, 0.02], P(β < 0) = 0.94
+- is_target:condition_direction = 0.46 [0.35, 0.56], P(β > 0) > 0.999
+
+**Response-scale DID contrasts**:
+- Inflate selectivity: +2.4 pp, P(> 0) = 0.995
+- Suppress selectivity: −5.3 pp, P(< 0) > 0.999
+
+**Conclusion**: ZOIB confirms all qualitative LME findings. Both models agree that incentive direction selectively modulates consciousness-related indicators while placebos remain stable. Full comparison: `results/zoib_vs_lme_comparison.md`. Model object: `results/zoib_model1.rds`. Script: `scripts/run_zoib.R`.
+
 ---
 
 ## 4. Contrast Coding and Hypotheses
@@ -845,7 +871,7 @@ The models should be fit and reported in the following order:
 
 1. **Descriptive statistics and visualization** -- cell means, distributions, heatmaps. No modeling.
 2. **Model 1 (Core Selectivity)** -- confirmatory test of H1. Report regardless of other model results.
-3. **Model 1 sensitivity checks** -- prior sensitivity, ZOIB vs. Gaussian comparison, random vs. fixed model effects.
+3. **Model 1 sensitivity checks** -- prior sensitivity, ZOIB vs. Gaussian comparison (**completed**: ZOIB confirms LME; see Section 3.6 and `results/zoib_vs_lme_comparison.md`), random vs. fixed model effects.
 4. **Model 2 (Asymmetry)** -- characterize inflate/suppress directionality.
 5. **Model 4 (Indicator-Level)** -- extract per-indicator rankings from Model 1 random effects. (Note: this uses the same fit as Model 1; it is a different extraction, not a different model.)
 6. **Model 3 (Full Model)** -- only if data coverage permits. This is exploratory.
