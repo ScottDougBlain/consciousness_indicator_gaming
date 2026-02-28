@@ -27,7 +27,7 @@ import numpy as np
 from scipy import stats as sp_stats
 
 RESULTS = Path("results")
-FIG_DIR = Path(".")
+FIG_DIR = Path("figures")
 
 # ── Model display names ─────────────────────────────────────────────────
 MODEL_DISPLAY = {
